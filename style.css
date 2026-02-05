@@ -32,6 +32,13 @@ button {
   font-size: 16px;
 }
 
+.event {
+  margin-top: 15px;
+  padding: 10px;
+  background: #f9f9f9;
+  border-left: 4px solid #0077ff;
+}
+
 #status {
   margin-top: 15px;
   font-style: italic;
