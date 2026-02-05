@@ -1,1 +1,31 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Manager Tamagotchi</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
 
+<div class="app">
+  <h1>Сотрудник</h1>
+
+  <div class="stats">
+    <div>🔥 Мотивация: <span id="motivation"></span></div>
+    <div>😊 Эмоциональный фон: <span id="emotion"></span></div>
+    <div>📊 Качество работы: <span id="quality"></span></div>
+  </div>
+
+  <div class="actions">
+    <button onclick="praise()">⭐ Отметить достижения</button>
+    <button onclick="checkIn()">💬 Уточнить, всё ли в порядке</button>
+    <button onclick="feedback()">🗣 Дать обратную связь</button>
+  </div>
+
+  <p id="status"></p>
+</div>
+
+<script src="script.js"></script>
+</body>
+</html>
