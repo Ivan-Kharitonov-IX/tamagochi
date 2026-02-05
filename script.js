@@ -76,4 +76,3 @@ function feedback() {
 // ---------- start ----------
 updateUI();
 setInterval(tick, 5000);
-
