@@ -18,32 +18,47 @@ const state = {
   currentEvent: null
 };
 
-// ---------- События ----------
+// ---------- События линейного сотрудника ----------
 const events = [
   {
-    text: "Сотрудник перегружен задачами — мотивация и эмоциональный фон снизились",
+    text: "Перегрузка заказами — мотивация и эмоциональный фон снизились",
     effect: { motivation: -15, emotion: -10 },
     correctAction: "checkIn"
   },
   {
-    text: "Сотрудник начал новый интересный проект",
+    text: "Неясные инструкции по выдаче — сотрудник растерян",
+    effect: { motivation: -10, emotion: -5 },
+    correctAction: "feedback"
+  },
+  {
+    text: "Ошибка при выдаче заказа — качество снизилось",
+    effect: { motivation: -5, quality: -10 },
+    correctAction: "feedback"
+  },
+  {
+    text: "Клиент недоволен обслуживанием — эмоциональный фон снизился",
+    effect: { emotion: -15 },
+    correctAction: "checkIn"
+  },
+  {
+    text: "Сотрудника игнорируют коллеги или руководство — мотивация и эмоции упали",
+    effect: { motivation: -10, emotion: -10 },
+    correctAction: null // нельзя исправить
+  },
+  {
+    text: "Похвала от клиента за хорошее обслуживание — мотивация и эмоции выросли",
     effect: { motivation: 10, emotion: 10 },
     correctAction: "praise"
   },
   {
-    text: "Конфликт в команде",
+    text: "Смена прошла без ошибок — качество и эмоции повысились",
+    effect: { quality: 10, emotion: 5 },
+    correctAction: "praise"
+  },
+  {
+    text: "Конфликт в команде — эмоциональный фон снизился",
     effect: { motivation: -10, emotion: -20 },
     correctAction: "checkIn"
-  },
-  {
-    text: "Отличный результат проекта",
-    effect: { quality: 10, emotion: 5 },
-    correctAction: "feedback"
-  },
-  {
-    text: "Игнорирование сотрудника руководством",
-    effect: { motivation: -10, emotion: -10 },
-    correctAction: null // нельзя исправить
   }
 ];
 
@@ -56,8 +71,8 @@ function normalize() {
   state.quality = clamp(state.quality);
 }
 
+// Качество зависит от мотивации и эмоций
 function updateQuality() {
-  // качество зависит от мотивации и эмоций
   const delta = Math.floor((state.motivation + state.emotion)/20 - 5);
   state.quality += delta;
   normalize();
@@ -87,7 +102,7 @@ function triggerEvent() {
   const evt = events[Math.floor(Math.random() * events.length)];
   state.currentEvent = evt;
 
-  // применяем эффект события
+  // сразу применяем эффект события
   state.motivation += evt.effect.motivation || 0;
   state.emotion += evt.effect.emotion || 0;
   state.quality += evt.effect.quality || 0;
@@ -104,7 +119,6 @@ function handleAction(action) {
 
   if (action === evt.correctAction) {
     messageEl.textContent = "Вы выбрали правильное действие! 👍";
-    // усиливаем эффект
     state.motivation += 5;
     state.emotion += 5;
     state.quality += 5;
