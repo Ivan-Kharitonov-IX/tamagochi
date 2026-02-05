@@ -1,31 +1,30 @@
 // ---------- Получаем элементы ----------
-const motivation = document.getElementById("motivation");
-const emotion = document.getElementById("emotion");
-const quality = document.getElementById("quality");
-const status = document.getElementById("status");
+const motivationEl = document.getElementById("motivation");
+const emotionEl = document.getElementById("emotion");
+const qualityEl = document.getElementById("quality");
+const statusEl = document.getElementById("status");
 
-// ---------- Состояние ----------
+// ---------- Инициализация состояния ----------
 const state = {
-  motivation: 60,
+  motivation: 60, // стартовое значение
   emotion: 60,
-  quality: 60,
-  lastUpdate: Date.now()
+  quality: 60
 };
 
 // ---------- Вспомогательные функции ----------
-const clamp = v => Math.max(0, Math.min(100, v));
+const clamp = (v) => Math.max(0, Math.min(100, v));
 
 function updateUI() {
-  motivation.textContent = state.motivation;
-  emotion.textContent = state.emotion;
-  quality.textContent = state.quality;
+  motivationEl.textContent = state.motivation;
+  emotionEl.textContent = state.emotion;
+  qualityEl.textContent = state.quality;
 
   if (state.emotion < 30) {
-    status.textContent = "Сотрудник эмоционально напряжён";
+    statusEl.textContent = "Сотрудник эмоционально напряжён";
   } else if (state.motivation < 30) {
-    status.textContent = "Сотрудник теряет вовлечённость";
+    statusEl.textContent = "Сотрудник теряет вовлечённость";
   } else {
-    status.textContent = "Состояние стабильное";
+    statusEl.textContent = "Состояние стабильное";
   }
 }
 
@@ -46,7 +45,7 @@ function tick() {
     state.motivation -= 1;
   }
 
-  // Качество — следствие
+  // Качество — следствие мотивации и эмоций
   if (state.motivation > 60 && state.emotion > 60) {
     state.quality += 1;
   } else if (state.motivation < 30) {
@@ -59,8 +58,7 @@ function tick() {
 
 // ---------- Действия игрока ----------
 function praise() {
-  const bonus = state.motivation > 80 ? 5 : 10;
-  state.motivation += bonus;
+  state.motivation += state.motivation > 80 ? 5 : 10;
   state.emotion += 10;
   normalize();
   updateUI();
@@ -82,6 +80,6 @@ function feedback() {
   updateUI();
 }
 
-// ---------- Запуск ----------
-updateUI();
+// ---------- Старт игры ----------
+updateUI();             // первый апдейт
 setInterval(tick, 5000); // один игровой шаг = 5 секунд
