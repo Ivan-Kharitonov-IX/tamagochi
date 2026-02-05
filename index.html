@@ -9,12 +9,18 @@
 <body>
 
 <div class="app">
-  <h1>Сотрудник</h1>
+  <h1>Сотрудник пункта выдачи</h1>
 
   <div class="stats">
-    <div>🔥 Мотивация: <span id="motivation">0</span></div>
-    <div>😊 Эмоциональный фон: <span id="emotion">0</span></div>
-    <div>📊 Качество работы: <span id="quality">0</span></div>
+    <div>🔥 Мотивация: <span id="motivation">0</span>
+      <progress id="motivationBar" value="0" max="100"></progress>
+    </div>
+    <div>😊 Эмоциональный фон: <span id="emotion">0</span>
+      <progress id="emotionBar" value="0" max="100"></progress>
+    </div>
+    <div>📊 Качество работы: <span id="quality">0</span>
+      <progress id="qualityBar" value="0" max="100"></progress>
+    </div>
   </div>
 
   <div class="actions">
