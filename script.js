@@ -15,50 +15,50 @@ const state = {
   motivation: 60,
   emotion: 60,
   quality: 60,
-  currentEvent: null
+  currentEvent: null,
+  waitingForAction: false,
+  eventsCount: 0,
+  maxEvents: 8
 };
 
-// ---------- События линейного сотрудника ----------
+// ---------- Статистика смены ----------
+const stats = {
+  actions: {
+    praise: 0,
+    checkIn: 0,
+    feedback: 0
+  },
+  wrongActions: 0,
+  lowMotivation: 0,
+  lowEmotion: 0
+};
+
+// ---------- События ----------
 const events = [
   {
-    text: "Перегрузка заказами — мотивация и эмоциональный фон снизились",
+    text: "Перегрузка заказами",
     effect: { motivation: -15, emotion: -10 },
     correctAction: "checkIn"
   },
   {
-    text: "Неясные инструкции по выдаче — сотрудник растерян",
+    text: "Неясные инструкции по выдаче",
     effect: { motivation: -10, emotion: -5 },
     correctAction: "feedback"
   },
   {
-    text: "Ошибка при выдаче заказа — качество снизилось",
-    effect: { motivation: -5, quality: -10 },
+    text: "Ошибка при выдаче заказа",
+    effect: { quality: -10, motivation: -5 },
     correctAction: "feedback"
   },
   {
-    text: "Клиент недоволен обслуживанием — эмоциональный фон снизился",
+    text: "Недовольный клиент",
     effect: { emotion: -15 },
     correctAction: "checkIn"
   },
   {
-    text: "Сотрудника игнорируют коллеги или руководство — мотивация и эмоции упали",
-    effect: { motivation: -10, emotion: -10 },
-    correctAction: null // нельзя исправить
-  },
-  {
-    text: "Похвала от клиента за хорошее обслуживание — мотивация и эмоции выросли",
+    text: "Похвала от клиента",
     effect: { motivation: 10, emotion: 10 },
     correctAction: "praise"
-  },
-  {
-    text: "Смена прошла без ошибок — качество и эмоции повысились",
-    effect: { quality: 10, emotion: 5 },
-    correctAction: "praise"
-  },
-  {
-    text: "Конфликт в команде — эмоциональный фон снизился",
-    effect: { motivation: -10, emotion: -20 },
-    correctAction: "checkIn"
   }
 ];
 
@@ -71,13 +71,13 @@ function normalize() {
   state.quality = clamp(state.quality);
 }
 
-// Качество зависит от мотивации и эмоций
 function updateQuality() {
-  const delta = Math.floor((state.motivation + state.emotion)/20 - 5);
+  const delta = Math.floor((state.motivation + state.emotion) / 25 - 4);
   state.quality += delta;
   normalize();
 }
 
+// ---------- UI ----------
 function updateUI() {
   motivationEl.textContent = state.motivation;
   emotionEl.textContent = state.emotion;
@@ -94,56 +94,102 @@ function updateUI() {
       ? "Сотрудник теряет вовлечённость"
       : "Состояние стабильное";
 
-  messageEl.textContent = state.currentEvent ? state.currentEvent.text : "";
+  if (state.motivation < 30) stats.lowMotivation++;
+  if (state.emotion < 30) stats.lowEmotion++;
 }
 
-// ---------- Случайное событие ----------
+// ---------- Событие ----------
 function triggerEvent() {
+  if (state.eventsCount >= state.maxEvents) {
+    endShift();
+    return;
+  }
+
   const evt = events[Math.floor(Math.random() * events.length)];
   state.currentEvent = evt;
+  state.waitingForAction = true;
+  state.eventsCount++;
 
-  // сразу применяем эффект события
   state.motivation += evt.effect.motivation || 0;
   state.emotion += evt.effect.emotion || 0;
   state.quality += evt.effect.quality || 0;
 
   normalize();
+  messageEl.textContent = `Событие: ${evt.text}`;
   updateUI();
 }
 
-// ---------- Действия игрока ----------
+// ---------- Действия ----------
 function handleAction(action) {
-  if (!state.currentEvent) return;
+  if (!state.waitingForAction) return;
 
-  const evt = state.currentEvent;
+  stats.actions[action]++;
 
-  if (action === evt.correctAction) {
-    messageEl.textContent = "Вы выбрали правильное действие! 👍";
+  if (action === state.currentEvent.correctAction) {
     state.motivation += 5;
     state.emotion += 5;
     state.quality += 5;
+    messageEl.textContent = "Решение оказалось удачным.";
   } else {
-    if(evt.correctAction) {
-      messageEl.textContent = "Возможно, это было неверное решение. ⚠️";
-      state.motivation -= 5;
-      state.emotion -= 5;
-      state.quality -= 5;
-    } else {
-      messageEl.textContent = "Событие негативное, не исправить. ⚠️";
-    }
+    stats.wrongActions++;
+    state.motivation -= 5;
+    state.emotion -= 5;
+    state.quality -= 5;
+    messageEl.textContent = "Решение ухудшило состояние сотрудника.";
   }
 
   normalize();
   updateQuality();
   updateUI();
+
   state.currentEvent = null;
+  state.waitingForAction = false;
+
+  setTimeout(triggerEvent, 4000);
 }
 
-// ---------- Интерфейс кнопок ----------
+// ---------- Итог смены ----------
+function endShift() {
+  let summary = "Итог смены:\n\n";
+
+  const totalActions =
+    stats.actions.praise +
+    stats.actions.checkIn +
+    stats.actions.feedback;
+
+  if (stats.actions.praise > totalActions / 2) {
+    summary += "• Вы часто мотивировали, но могли упускать состояние сотрудника.\n";
+  }
+  if (stats.actions.checkIn > totalActions / 2) {
+    summary += "• Вы уделяли внимание состоянию сотрудника.\n";
+  }
+  if (stats.actions.feedback > totalActions / 2) {
+    summary += "• Вы делали упор на обратную связь и процессы.\n";
+  }
+
+  if (stats.wrongActions > 3) {
+    summary += "• Часто принимались решения без учёта контекста.\n";
+  }
+
+  if (stats.lowEmotion > 2) {
+    summary += "• Эмоциональное состояние сотрудника игнорировалось.\n";
+  }
+
+  if (stats.lowMotivation > 2) {
+    summary += "• Мотивация сотрудника часто была на критическом уровне.\n";
+  }
+
+  summary += "\nРекомендация:\n";
+  summary += "Сначала стабилизируйте состояние сотрудника, затем работайте с качеством.";
+
+  messageEl.textContent = summary;
+}
+
+// ---------- Кнопки ----------
 function praise() { handleAction("praise"); }
 function checkIn() { handleAction("checkIn"); }
 function feedback() { handleAction("feedback"); }
 
-// ---------- Запуск ----------
+// ---------- Старт ----------
 updateUI();
-setInterval(triggerEvent, 10000); // новое событие каждые 10 секунд
+triggerEvent();
