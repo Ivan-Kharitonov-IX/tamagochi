@@ -1,15 +1,3 @@
-// ---------- Элементы ----------
-const motivationEl = document.getElementById("motivation");
-const emotionEl = document.getElementById("emotion");
-const qualityEl = document.getElementById("quality");
-
-const motivationBar = document.getElementById("motivationBar");
-const emotionBar = document.getElementById("emotionBar");
-const qualityBar = document.getElementById("qualityBar");
-
-const statusEl = document.getElementById("status");
-const messageEl = document.getElementById("message");
-
 // ---------- Состояние ----------
 const state = {
   motivation: 60,
@@ -18,48 +6,40 @@ const state = {
   currentEvent: null,
   waitingForAction: false,
   eventsCount: 0,
-  maxEvents: 8
+  maxEvents: 15
 };
 
-// ---------- Статистика смены ----------
+// ---------- Статистика ----------
 const stats = {
-  actions: {
-    praise: 0,
-    checkIn: 0,
-    feedback: 0
-  },
+  actions: { praise: 0, checkIn: 0, feedback: 0 },
   wrongActions: 0,
   lowMotivation: 0,
   lowEmotion: 0
 };
 
 // ---------- События ----------
-const events = [
-  {
-    text: "Перегрузка заказами",
-    effect: { motivation: -15, emotion: -10 },
-    correctAction: "checkIn"
-  },
-  {
-    text: "Неясные инструкции по выдаче",
-    effect: { motivation: -10, emotion: -5 },
-    correctAction: "feedback"
-  },
-  {
-    text: "Ошибка при выдаче заказа",
-    effect: { quality: -10, motivation: -5 },
-    correctAction: "feedback"
-  },
-  {
-    text: "Недовольный клиент",
-    effect: { emotion: -15 },
-    correctAction: "checkIn"
-  },
-  {
-    text: "Похвала от клиента",
-    effect: { motivation: 10, emotion: 10 },
-    correctAction: "praise"
-  }
+
+// Негативные (основа смены)
+const negativeEvents = [
+  { text: "Перегрузка заказами", effect: { motivation: -15, emotion: -10 }, correctAction: "checkIn" },
+  { text: "Очередь растёт, сотрудник не справляется", effect: { emotion: -15 }, correctAction: "checkIn" },
+  { text: "Ошибка при выдаче заказа", effect: { quality: -10, motivation: -5 }, correctAction: "feedback" },
+  { text: "Недовольный клиент", effect: { emotion: -15 }, correctAction: "checkIn" },
+  { text: "Неясные инструкции по работе", effect: { motivation: -10, emotion: -5 }, correctAction: "feedback" },
+  { text: "Конфликт с коллегой", effect: { motivation: -10, emotion: -20 }, correctAction: "checkIn" }
+];
+
+// Нейтральные
+const neutralEvents = [
+  { text: "Обычная рабочая нагрузка", effect: {}, correctAction: null },
+  { text: "Смена идёт в штатном режиме", effect: {}, correctAction: null },
+  { text: "Небольшая задержка поставки", effect: { emotion: -5 }, correctAction: "checkIn" }
+];
+
+// Позитивные (редкие)
+const positiveEvents = [
+  { text: "Похвала от клиента", effect: { motivation: 10, emotion: 10 }, correctAction: "praise" },
+  { text: "Смена прошла без ошибок", effect: { quality: 10, emotion: 5 }, correctAction: "praise" }
 ];
 
 // ---------- Вспомогательные ----------
@@ -77,22 +57,28 @@ function updateQuality() {
   normalize();
 }
 
+// ---------- Выбор события с весами ----------
+function getRandomEvent() {
+  const roll = Math.random();
+
+  if (roll < 0.7) {
+    return negativeEvents[Math.floor(Math.random() * negativeEvents.length)];
+  } else if (roll < 0.9) {
+    return neutralEvents[Math.floor(Math.random() * neutralEvents.length)];
+  } else {
+    return positiveEvents[Math.floor(Math.random() * positiveEvents.length)];
+  }
+}
+
 // ---------- UI ----------
 function updateUI() {
-  motivationEl.textContent = state.motivation;
-  emotionEl.textContent = state.emotion;
-  qualityEl.textContent = state.quality;
+  document.getElementById("motivation").textContent = state.motivation;
+  document.getElementById("emotion").textContent = state.emotion;
+  document.getElementById("quality").textContent = state.quality;
 
-  motivationBar.value = state.motivation;
-  emotionBar.value = state.emotion;
-  qualityBar.value = state.quality;
-
-  statusEl.textContent =
-    state.emotion < 30
-      ? "Сотрудник эмоционально напряжён"
-      : state.motivation < 30
-      ? "Сотрудник теряет вовлечённость"
-      : "Состояние стабильное";
+  document.getElementById("motivationBar").value = state.motivation;
+  document.getElementById("emotionBar").value = state.emotion;
+  document.getElementById("qualityBar").value = state.quality;
 
   if (state.motivation < 30) stats.lowMotivation++;
   if (state.emotion < 30) stats.lowEmotion++;
@@ -105,7 +91,7 @@ function triggerEvent() {
     return;
   }
 
-  const evt = events[Math.floor(Math.random() * events.length)];
+  const evt = getRandomEvent();
   state.currentEvent = evt;
   state.waitingForAction = true;
   state.eventsCount++;
@@ -115,7 +101,7 @@ function triggerEvent() {
   state.quality += evt.effect.quality || 0;
 
   normalize();
-  messageEl.textContent = `Событие: ${evt.text}`;
+  document.getElementById("message").textContent = `Событие: ${evt.text}`;
   updateUI();
 }
 
@@ -129,13 +115,17 @@ function handleAction(action) {
     state.motivation += 5;
     state.emotion += 5;
     state.quality += 5;
-    messageEl.textContent = "Решение оказалось удачным.";
+    document.getElementById("message").textContent = "Решение помогло стабилизировать ситуацию.";
   } else {
-    stats.wrongActions++;
-    state.motivation -= 5;
-    state.emotion -= 5;
-    state.quality -= 5;
-    messageEl.textContent = "Решение ухудшило состояние сотрудника.";
+    if (state.currentEvent.correctAction) {
+      stats.wrongActions++;
+      state.motivation -= 5;
+      state.emotion -= 5;
+      state.quality -= 5;
+      document.getElementById("message").textContent = "Решение усугубило ситуацию.";
+    } else {
+      document.getElementById("message").textContent = "Ситуация не требовала вмешательства.";
+    }
   }
 
   normalize();
@@ -144,45 +134,25 @@ function handleAction(action) {
 
   state.currentEvent = null;
   state.waitingForAction = false;
-
-  setTimeout(triggerEvent, 4000);
+  setTimeout(triggerEvent, 3500);
 }
 
 // ---------- Итог смены ----------
 function endShift() {
   let summary = "Итог смены:\n\n";
 
-  const totalActions =
-    stats.actions.praise +
-    stats.actions.checkIn +
-    stats.actions.feedback;
-
-  if (stats.actions.praise > totalActions / 2) {
-    summary += "• Вы часто мотивировали, но могли упускать состояние сотрудника.\n";
-  }
-  if (stats.actions.checkIn > totalActions / 2) {
-    summary += "• Вы уделяли внимание состоянию сотрудника.\n";
-  }
-  if (stats.actions.feedback > totalActions / 2) {
-    summary += "• Вы делали упор на обратную связь и процессы.\n";
-  }
-
-  if (stats.wrongActions > 3) {
+  if (stats.wrongActions > 4)
     summary += "• Часто принимались решения без учёта контекста.\n";
-  }
 
-  if (stats.lowEmotion > 2) {
+  if (stats.lowEmotion > 3)
     summary += "• Эмоциональное состояние сотрудника игнорировалось.\n";
-  }
 
-  if (stats.lowMotivation > 2) {
+  if (stats.lowMotivation > 3)
     summary += "• Мотивация сотрудника часто была на критическом уровне.\n";
-  }
 
-  summary += "\nРекомендация:\n";
-  summary += "Сначала стабилизируйте состояние сотрудника, затем работайте с качеством.";
+  summary += "\nРекомендация:\nСначала стабилизируйте состояние сотрудника, затем работайте с качеством.";
 
-  messageEl.textContent = summary;
+  document.getElementById("message").textContent = summary;
 }
 
 // ---------- Кнопки ----------
