@@ -9,6 +9,29 @@ const state = {
   maxEvents: 15
 };
 
+// ---------- Спрайты ----------
+const sprites = {
+  happy: "assets/happy.png",
+  neutral: "assets/neutral.png",
+  stressed: "assets/stressed.png",
+  angry: "assets/angry.png",
+  tired: "assets/tired.png"
+};
+
+// ---------- Определение состояния ----------
+function getCharacterState() {
+  if (state.motivation < 30) return "tired";
+  if (state.emotion < 30) return "angry";
+  if (state.emotion < 45) return "stressed";
+  if (state.motivation > 75 && state.emotion > 70) return "happy";
+  return "neutral";
+}
+
+function updateCharacterSprite() {
+  const current = getCharacterState();
+  document.getElementById("characterSprite").src = sprites[current];
+}
+
 // ---------- Статистика ----------
 const stats = {
   actions: { praise: 0, checkIn: 0, feedback: 0 },
@@ -18,8 +41,6 @@ const stats = {
 };
 
 // ---------- События ----------
-
-// Негативные (основа смены)
 const negativeEvents = [
   { text: "Перегрузка заказами", effect: { motivation: -15, emotion: -10 }, correctAction: "checkIn" },
   { text: "Очередь растёт, сотрудник не справляется", effect: { emotion: -15 }, correctAction: "checkIn" },
@@ -29,14 +50,12 @@ const negativeEvents = [
   { text: "Конфликт с коллегой", effect: { motivation: -10, emotion: -20 }, correctAction: "checkIn" }
 ];
 
-// Нейтральные
 const neutralEvents = [
   { text: "Обычная рабочая нагрузка", effect: {}, correctAction: null },
   { text: "Смена идёт в штатном режиме", effect: {}, correctAction: null },
   { text: "Небольшая задержка поставки", effect: { emotion: -5 }, correctAction: "checkIn" }
 ];
 
-// Позитивные (редкие)
 const positiveEvents = [
   { text: "Похвала от клиента", effect: { motivation: 10, emotion: 10 }, correctAction: "praise" },
   { text: "Смена прошла без ошибок", effect: { quality: 10, emotion: 5 }, correctAction: "praise" }
@@ -57,17 +76,12 @@ function updateQuality() {
   normalize();
 }
 
-// ---------- Выбор события с весами ----------
+// ---------- Выбор события ----------
 function getRandomEvent() {
   const roll = Math.random();
-
-  if (roll < 0.7) {
-    return negativeEvents[Math.floor(Math.random() * negativeEvents.length)];
-  } else if (roll < 0.9) {
-    return neutralEvents[Math.floor(Math.random() * neutralEvents.length)];
-  } else {
-    return positiveEvents[Math.floor(Math.random() * positiveEvents.length)];
-  }
+  if (roll < 0.7) return negativeEvents[Math.floor(Math.random() * negativeEvents.length)];
+  if (roll < 0.9) return neutralEvents[Math.floor(Math.random() * neutralEvents.length)];
+  return positiveEvents[Math.floor(Math.random() * positiveEvents.length)];
 }
 
 // ---------- UI ----------
@@ -80,8 +94,7 @@ function updateUI() {
   document.getElementById("emotionBar").value = state.emotion;
   document.getElementById("qualityBar").value = state.quality;
 
-  if (state.motivation < 30) stats.lowMotivation++;
-  if (state.emotion < 30) stats.lowEmotion++;
+  updateCharacterSprite();
 }
 
 // ---------- Событие ----------
@@ -116,16 +129,14 @@ function handleAction(action) {
     state.emotion += 5;
     state.quality += 5;
     document.getElementById("message").textContent = "Решение помогло стабилизировать ситуацию.";
+  } else if (state.currentEvent.correctAction) {
+    stats.wrongActions++;
+    state.motivation -= 5;
+    state.emotion -= 5;
+    state.quality -= 5;
+    document.getElementById("message").textContent = "Решение усугубило ситуацию.";
   } else {
-    if (state.currentEvent.correctAction) {
-      stats.wrongActions++;
-      state.motivation -= 5;
-      state.emotion -= 5;
-      state.quality -= 5;
-      document.getElementById("message").textContent = "Решение усугубило ситуацию.";
-    } else {
-      document.getElementById("message").textContent = "Ситуация не требовала вмешательства.";
-    }
+    document.getElementById("message").textContent = "Ситуация не требовала вмешательства.";
   }
 
   normalize();
@@ -139,20 +150,8 @@ function handleAction(action) {
 
 // ---------- Итог смены ----------
 function endShift() {
-  let summary = "Итог смены:\n\n";
-
-  if (stats.wrongActions > 4)
-    summary += "• Часто принимались решения без учёта контекста.\n";
-
-  if (stats.lowEmotion > 3)
-    summary += "• Эмоциональное состояние сотрудника игнорировалось.\n";
-
-  if (stats.lowMotivation > 3)
-    summary += "• Мотивация сотрудника часто была на критическом уровне.\n";
-
-  summary += "\nРекомендация:\nСначала стабилизируйте состояние сотрудника, затем работайте с качеством.";
-
-  document.getElementById("message").textContent = summary;
+  document.getElementById("message").textContent =
+    "Смена завершена. Проанализируйте принятые решения и влияние на состояние сотрудника.";
 }
 
 // ---------- Кнопки ----------
