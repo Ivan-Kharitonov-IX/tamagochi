@@ -1,4 +1,3 @@
-// ---------- Состояние ----------
 const state = {
   motivation: 60,
   emotion: 60,
@@ -6,10 +5,10 @@ const state = {
   currentEvent: null,
   waitingForAction: false,
   eventsCount: 0,
-  maxEvents: 15
+  maxEvents: 15,
+  gameOver: false
 };
 
-// ---------- Спрайты ----------
 const sprites = {
   happy: "assets/happy.png",
   neutral: "assets/neutral.png",
@@ -18,29 +17,11 @@ const sprites = {
   tired: "assets/tired.png"
 };
 
-// ---------- Определение состояния ----------
-function getCharacterState() {
-  if (state.motivation < 30) return "tired";
-  if (state.emotion < 30) return "angry";
-  if (state.emotion < 45) return "stressed";
-  if (state.motivation > 75 && state.emotion > 70) return "happy";
-  return "neutral";
-}
-
-function updateCharacterSprite() {
-  const current = getCharacterState();
-  document.getElementById("characterSprite").src = sprites[current];
-}
-
-// ---------- Статистика ----------
 const stats = {
   actions: { praise: 0, checkIn: 0, feedback: 0 },
-  wrongActions: 0,
-  lowMotivation: 0,
-  lowEmotion: 0
+  wrongActions: 0
 };
 
-// ---------- События ----------
 const negativeEvents = [
   { text: "Перегрузка заказами", effect: { motivation: -15, emotion: -10 }, correctAction: "checkIn" },
   { text: "Очередь растёт, сотрудник не справляется", effect: { emotion: -15 }, correctAction: "checkIn" },
@@ -61,13 +42,39 @@ const positiveEvents = [
   { text: "Смена прошла без ошибок", effect: { quality: 10, emotion: 5 }, correctAction: "praise" }
 ];
 
-// ---------- Вспомогательные ----------
-const clamp = v => Math.max(0, Math.min(100, v));
+const elements = {
+  motivation: document.getElementById("motivation"),
+  emotion: document.getElementById("emotion"),
+  quality: document.getElementById("quality"),
+  motivationBar: document.getElementById("motivationBar"),
+  emotionBar: document.getElementById("emotionBar"),
+  qualityBar: document.getElementById("qualityBar"),
+  message: document.getElementById("message"),
+  status: document.getElementById("status"),
+  characterSprite: document.getElementById("characterSprite"),
+  praiseBtn: document.getElementById("praiseBtn"),
+  checkInBtn: document.getElementById("checkInBtn"),
+  feedbackBtn: document.getElementById("feedbackBtn")
+};
+
+const clamp = (value) => Math.max(0, Math.min(100, value));
 
 function normalize() {
   state.motivation = clamp(state.motivation);
   state.emotion = clamp(state.emotion);
   state.quality = clamp(state.quality);
+}
+
+function getCharacterState() {
+  if (state.motivation < 30) return "tired";
+  if (state.emotion < 30) return "angry";
+  if (state.emotion < 45) return "stressed";
+  if (state.motivation > 75 && state.emotion > 70) return "happy";
+  return "neutral";
+}
+
+function updateCharacterSprite() {
+  elements.characterSprite.src = sprites[getCharacterState()] || sprites.neutral;
 }
 
 function updateQuality() {
@@ -76,7 +83,6 @@ function updateQuality() {
   normalize();
 }
 
-// ---------- Выбор события ----------
 function getRandomEvent() {
   const roll = Math.random();
   if (roll < 0.7) return negativeEvents[Math.floor(Math.random() * negativeEvents.length)];
@@ -84,59 +90,71 @@ function getRandomEvent() {
   return positiveEvents[Math.floor(Math.random() * positiveEvents.length)];
 }
 
-// ---------- UI ----------
-function updateUI() {
-  document.getElementById("motivation").textContent = state.motivation;
-  document.getElementById("emotion").textContent = state.emotion;
-  document.getElementById("quality").textContent = state.quality;
+function setStatus(text = "") {
+  elements.status.textContent = text;
+}
 
-  document.getElementById("motivationBar").value = state.motivation;
-  document.getElementById("emotionBar").value = state.emotion;
-  document.getElementById("qualityBar").value = state.quality;
+function updateUI() {
+  elements.motivation.textContent = state.motivation;
+  elements.emotion.textContent = state.emotion;
+  elements.quality.textContent = state.quality;
+
+  elements.motivationBar.value = state.motivation;
+  elements.emotionBar.value = state.emotion;
+  elements.qualityBar.value = state.quality;
 
   updateCharacterSprite();
 }
 
-// ---------- Событие ----------
 function triggerEvent() {
+  if (state.gameOver) return;
+
   if (state.eventsCount >= state.maxEvents) {
     endShift();
     return;
   }
 
-  const evt = getRandomEvent();
-  state.currentEvent = evt;
+  const event = getRandomEvent();
+  state.currentEvent = event;
   state.waitingForAction = true;
-  state.eventsCount++;
+  state.eventsCount += 1;
 
-  state.motivation += evt.effect.motivation || 0;
-  state.emotion += evt.effect.emotion || 0;
-  state.quality += evt.effect.quality || 0;
+  state.motivation += event.effect.motivation || 0;
+  state.emotion += event.effect.emotion || 0;
+  state.quality += event.effect.quality || 0;
 
   normalize();
-  document.getElementById("message").textContent = `Событие: ${evt.text}`;
+  elements.message.textContent = `Событие: ${event.text}`;
+  setStatus(`Событие ${state.eventsCount} из ${state.maxEvents}`);
   updateUI();
 }
 
-// ---------- Действия ----------
-function handleAction(action) {
-  if (!state.waitingForAction) return;
+function scheduleNextEvent() {
+  window.setTimeout(() => {
+    if (!state.gameOver) {
+      triggerEvent();
+    }
+  }, 2500);
+}
 
-  stats.actions[action]++;
+function handleAction(action) {
+  if (state.gameOver || !state.waitingForAction || !state.currentEvent) return;
+
+  stats.actions[action] += 1;
 
   if (action === state.currentEvent.correctAction) {
     state.motivation += 5;
     state.emotion += 5;
     state.quality += 5;
-    document.getElementById("message").textContent = "Решение помогло стабилизировать ситуацию.";
+    elements.message.textContent = "Решение помогло стабилизировать ситуацию.";
   } else if (state.currentEvent.correctAction) {
-    stats.wrongActions++;
+    stats.wrongActions += 1;
     state.motivation -= 5;
     state.emotion -= 5;
     state.quality -= 5;
-    document.getElementById("message").textContent = "Решение усугубило ситуацию.";
+    elements.message.textContent = "Решение усугубило ситуацию.";
   } else {
-    document.getElementById("message").textContent = "Ситуация не требовала вмешательства.";
+    elements.message.textContent = "Ситуация не требовала вмешательства.";
   }
 
   normalize();
@@ -145,20 +163,20 @@ function handleAction(action) {
 
   state.currentEvent = null;
   state.waitingForAction = false;
-  setTimeout(triggerEvent, 3500);
+  scheduleNextEvent();
 }
 
-// ---------- Итог смены ----------
 function endShift() {
-  document.getElementById("message").textContent =
-    "Смена завершена. Проанализируйте принятые решения и влияние на состояние сотрудника.";
+  state.gameOver = true;
+  state.waitingForAction = false;
+  elements.message.textContent = "Смена завершена. Проанализируйте принятые решения и влияние на состояние сотрудника.";
+  setStatus(`Ошибочных действий: ${stats.wrongActions}`);
 }
 
-// ---------- Кнопки ----------
-function praise() { handleAction("praise"); }
-function checkIn() { handleAction("checkIn"); }
-function feedback() { handleAction("feedback"); }
+elements.praiseBtn.addEventListener("click", () => handleAction("praise"));
+elements.checkInBtn.addEventListener("click", () => handleAction("checkIn"));
+elements.feedbackBtn.addEventListener("click", () => handleAction("feedback"));
 
-// ---------- Старт ----------
 updateUI();
+setStatus("Игра началась");
 triggerEvent();
