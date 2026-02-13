@@ -2,45 +2,42 @@
 <html lang="ru">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Manager Tamagotchi</title>
   <link rel="stylesheet" href="style.css" />
+  <script src="script.js" defer></script>
 </head>
 <body>
+  <div class="app">
+    <h1>Сотрудник пункта выдачи</h1>
 
-<div class="app">
-  <h1>Сотрудник пункта выдачи</h1>
-
-  <!-- БЛОК ПЕРСОНАЖА -->
-  <div class="character">
-    <img id="characterSprite" src="assets/neutral.png" alt="character">
-  </div>
-
-  <div class="stats">
-    <div>🔥 Мотивация: <span id="motivation">0</span>
-      <progress id="motivationBar" value="0" max="100"></progress>
+    <div class="character">
+      <img id="characterSprite" src="assets/neutral.png" alt="Персонаж" />
     </div>
-    <div>😊 Эмоциональный фон: <span id="emotion">0</span>
-      <progress id="emotionBar" value="0" max="100"></progress>
+
+    <div class="stats">
+      <div>🔥 Мотивация: <span id="motivation">0</span>
+        <progress id="motivationBar" value="0" max="100"></progress>
+      </div>
+      <div>😊 Эмоциональный фон: <span id="emotion">0</span>
+        <progress id="emotionBar" value="0" max="100"></progress>
+      </div>
+      <div>📊 Качество работы: <span id="quality">0</span>
+        <progress id="qualityBar" value="0" max="100"></progress>
+      </div>
     </div>
-    <div>📊 Качество работы: <span id="quality">0</span>
-      <progress id="qualityBar" value="0" max="100"></progress>
+
+    <div class="actions">
+      <button id="praiseBtn" type="button">⭐ Отметить достижения</button>
+      <button id="checkInBtn" type="button">💬 Уточнить, всё ли в порядке</button>
+      <button id="feedbackBtn" type="button">🗣 Дать обратную связь</button>
     </div>
+
+    <div class="event">
+      <p id="message"></p>
+    </div>
+
+    <p id="status"></p>
   </div>
-
-  <div class="actions">
-    <button onclick="praise()">⭐ Отметить достижения</button>
-    <button onclick="checkIn()">💬 Уточнить, всё ли в порядке</button>
-    <button onclick="feedback()">🗣 Дать обратную связь</button>
-  </div>
-
-  <div class="event">
-    <p id="message"></p>
-  </div>
-
-  <p id="status"></p>
-</div>
-
-<script src="script.js"></script>
 </body>
 </html>
