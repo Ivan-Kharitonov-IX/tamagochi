@@ -1,537 +1,345 @@
-const SHIFT_MIN_TURNS = 10;
-const SHIFT_MAX_TURNS = 15;
-
-const state = {
-  motivation: 62,
-  emotion: 58,
-  quality: 60,
-  fatigue: 25,
-  burnoutRisk: 8,
-  currentEvent: null,
-  waitingForAction: false,
-  turnsPlayed: 0,
-  maxTurns: randomInt(SHIFT_MIN_TURNS, SHIFT_MAX_TURNS),
-  gameOver: false,
-  criticalStreak: {
-    motivation: 0,
-    emotion: 0
-  },
-  criticalMoments: 0,
-  timeline: [],
-  actionStats: {
-    supportive: 0,
-    directive: 0,
-    byAction: {}
-  }
-};
-
-const sprites = {
-  happy: "assets/happy.png",
-  neutral: "assets/neutral.png",
-  stressed: "assets/stressed.png",
-  angry: "assets/angry.png",
-  tired: "assets/tired.png"
-};
-
-const actions = [
-  {
-    id: "praiseEmployee",
-    label: "Похвалить сотрудника",
-    type: "supportive",
-    effects: { motivation: 12, emotion: 8, quality: 1, fatigue: -4, burnoutRisk: -2 },
-    tags: { clients: 0, processes: -1, inner: 1, team: 1 },
-    note: "Поддержка укрепляет доверие, но не всегда решает системные сбои."
-  },
-  {
-    id: "personalTalk",
-    label: "Провести личный разговор",
-    type: "supportive",
-    effects: { motivation: 7, emotion: 14, quality: -3, fatigue: -5, burnoutRisk: -3 },
-    tags: { clients: -1, processes: -2, inner: 2, team: 1 },
-    note: "Помогает снять напряжение, но временно отвлекает от операционных задач."
-  },
-  {
-    id: "correctiveFeedback",
-    label: "Дать корректирующую обратную связь",
-    type: "directive",
-    effects: { motivation: -4, emotion: -7, quality: 9, fatigue: 4, burnoutRisk: 3 },
-    tags: { clients: 1, processes: 2, inner: -2, team: -1 },
-    note: "Ускоряет исправление ошибок, но может снизить эмоциональный фон."
-  },
-  {
-    id: "redistributeLoad",
-    label: "Перераспределить нагрузку",
-    type: "supportive",
-    effects: { motivation: 4, emotion: 5, quality: -2, fatigue: -9, burnoutRisk: -5 },
-    tags: { clients: 0, processes: -1, inner: 1, team: 2 },
-    note: "Снижает перегруз, но адаптация команды временно замедляет результат."
-  },
-  {
-    id: "speedUpPace",
-    label: "Ускорить темп работы",
-    type: "directive",
-    effects: { motivation: -6, emotion: -9, quality: 8, fatigue: 10, burnoutRisk: 6 },
-    tags: { clients: 2, processes: 1, inner: -2, team: -2 },
-    note: "Даёт быстрый прирост в SLA, но повышает усталость и риск выгорания."
-  },
-  {
-    id: "trainAndExplain",
-    label: "Обучить и объяснить процесс",
-    type: "supportive",
-    effects: { motivation: 5, emotion: 3, quality: -6, fatigue: 2, burnoutRisk: -2 },
-    tags: { clients: -1, processes: 2, inner: 1, team: 0 },
-    note: "Краткосрочно снижает производительность, но укрепляет стабильность."
-  }
-];
-
-const events = {
-  clients: [
-    {
-      category: "Клиенты",
-      text: "Пошёл наплыв клиентов с возвратами — очередь растёт каждую минуту.",
-      impact: { emotion: -8, fatigue: 6, quality: -2 },
-      pressure: 2,
-      bestTags: ["clients", "processes"]
-    },
-    {
-      category: "Клиенты",
-      text: "Крупный клиент просит срочную отгрузку вне стандартного окна.",
-      impact: { motivation: -4, emotion: -5, quality: -1 },
-      pressure: 1,
-      bestTags: ["processes", "clients"]
-    },
-    {
-      category: "Клиенты",
-      text: "Покупатель агрессивно спорит из-за задержки и требует руководителя.",
-      impact: { emotion: -10, fatigue: 4 },
-      pressure: 2,
-      bestTags: ["inner", "clients"]
-    },
-    {
-      category: "Клиенты",
-      text: "Серия благодарностей от постоянных клиентов повышает ожидания к сервису.",
-      impact: { motivation: 4, emotion: 3 },
-      pressure: 1,
-      bestTags: ["team", "processes"]
-    },
-    {
-      category: "Клиенты",
-      text: "Клиенты жалуются на несоответствие статуса заказа в системе.",
-      impact: { quality: -5, emotion: -4 },
-      pressure: 1,
-      bestTags: ["processes", "clients"]
-    }
-  ],
-  processes: [
-    {
-      category: "Процессы",
-      text: "Новый регламент приёмки внедрили без инструктажа команды.",
-      impact: { motivation: -6, quality: -4 },
-      pressure: 1,
-      bestTags: ["processes", "inner"]
-    },
-    {
-      category: "Процессы",
-      text: "Сканер штрихкодов периодически зависает, операции замедляются.",
-      impact: { emotion: -6, fatigue: 5, quality: -2 },
-      pressure: 2,
-      bestTags: ["processes", "team"]
-    },
-    {
-      category: "Процессы",
-      text: "Поставщик снова прислал коробки без маркировки.",
-      impact: { quality: -6, fatigue: 3 },
-      pressure: 1,
-      bestTags: ["processes", "clients"]
-    },
-    {
-      category: "Процессы",
-      text: "Внезапная проверка качества требует идеальной документации.",
-      impact: { emotion: -5, quality: -3, fatigue: 4 },
-      pressure: 2,
-      bestTags: ["processes", "clients"]
-    },
-    {
-      category: "Процессы",
-      text: "Успешный пилот новой схемы упаковки можно масштабировать на смену.",
-      impact: { motivation: 3, quality: 2 },
-      pressure: 0,
-      bestTags: ["processes", "team"]
-    }
-  ],
-  inner: [
-    {
-      category: "Внутреннее состояние сотрудника",
-      text: "Сотрудник выглядит вымотанным и делает паузы между задачами.",
-      impact: { emotion: -7, fatigue: 8 },
-      pressure: 1,
-      bestTags: ["inner", "team"]
-    },
-    {
-      category: "Внутреннее состояние сотрудника",
-      text: "После ошибки сотрудник сильно сомневается в своей компетентности.",
-      impact: { motivation: -9, emotion: -6 },
-      pressure: 1,
-      bestTags: ["inner", "processes"]
-    },
-    {
-      category: "Внутреннее состояние сотрудника",
-      text: "Сотрудник просит больше самостоятельности в принятии решений.",
-      impact: { motivation: -3, emotion: -2 },
-      pressure: 0,
-      bestTags: ["team", "inner"]
-    },
-    {
-      category: "Внутреннее состояние сотрудника",
-      text: "Замечены признаки раздражительности и циничные комментарии.",
-      impact: { emotion: -9, burnoutRisk: 5 },
-      pressure: 1,
-      bestTags: ["inner", "team"]
-    },
-    {
-      category: "Внутреннее состояние сотрудника",
-      text: "Сотрудник предложил идею улучшения процесса, но не уверен, что его услышат.",
-      impact: { motivation: 2, emotion: 1 },
-      pressure: 0,
-      bestTags: ["team", "processes"]
-    }
-  ],
-  team: [
-    {
-      category: "Коллектив",
-      text: "Коллега заболел, и часть задач легла на вашу смену.",
-      impact: { fatigue: 7, emotion: -4, quality: -2 },
-      pressure: 2,
-      bestTags: ["team", "inner"]
-    },
-    {
-      category: "Коллектив",
-      text: "В команде спор: кто должен закрывать поздние отгрузки.",
-      impact: { emotion: -7, motivation: -3 },
-      pressure: 1,
-      bestTags: ["team", "inner"]
-    },
-    {
-      category: "Коллектив",
-      text: "Новый стажёр требует постоянных подсказок и замедляет поток.",
-      impact: { quality: -3, fatigue: 4 },
-      pressure: 1,
-      bestTags: ["processes", "team"]
-    },
-    {
-      category: "Коллектив",
-      text: "Команда просит прозрачнее объяснить приоритеты на день.",
-      impact: { motivation: -2, quality: -1 },
-      pressure: 0,
-      bestTags: ["processes", "team"]
-    },
-    {
-      category: "Коллектив",
-      text: "Сильный сотрудник из соседней смены готов помочь, если грамотно распределить задачи.",
-      impact: { emotion: 2, quality: 1 },
-      pressure: 0,
-      bestTags: ["team", "clients"]
-    }
-  ]
-};
-
-const eventPool = Object.values(events).flat();
-
-const elements = {
-  motivation: document.getElementById("motivation"),
-  emotion: document.getElementById("emotion"),
-  quality: document.getElementById("quality"),
-  motivationBar: document.getElementById("motivationBar"),
-  emotionBar: document.getElementById("emotionBar"),
-  qualityBar: document.getElementById("qualityBar"),
-  message: document.getElementById("message"),
-  status: document.getElementById("status"),
-  characterSprite: document.getElementById("characterSprite"),
-  actionsContainer: document.querySelector(".actions"),
-  statsContainer: document.querySelector(".stats")
-};
-
-const clamp = (value) => Math.max(0, Math.min(100, Math.round(value)));
-
-function randomInt(min, max) {
-  return Math.floor(Math.random() * (max - min + 1)) + min;
-}
-
-function normalizeState() {
-  state.motivation = clamp(state.motivation);
-  state.emotion = clamp(state.emotion);
-  state.quality = clamp(state.quality);
-  state.fatigue = clamp(state.fatigue);
-  state.burnoutRisk = clamp(state.burnoutRisk);
-}
-
-function ensureDynamicStats() {
-  if (document.getElementById("fatigue")) return;
-
-  const row = document.createElement("div");
-  row.innerHTML = `😴 Уровень усталости: <span id="fatigue">0</span><progress id="fatigueBar" value="0" max="100"></progress>`;
-  elements.statsContainer.appendChild(row);
-
-  elements.fatigue = document.getElementById("fatigue");
-  elements.fatigueBar = document.getElementById("fatigueBar");
-}
-
-function getCharacterState() {
-  if (state.fatigue > 72 || state.burnoutRisk > 68) return "tired";
-  if (state.emotion < 26) return "angry";
-  if (state.emotion < 45 || state.motivation < 40) return "stressed";
-  if (state.motivation > 78 && state.emotion > 72 && state.fatigue < 35) return "happy";
-  return "neutral";
-}
-
-function updateCharacterSprite() {
-  elements.characterSprite.src = sprites[getCharacterState()] || sprites.neutral;
-}
-
-function applyEventImpact(event) {
-  Object.entries(event.impact).forEach(([metric, value]) => {
-    state[metric] += value;
-  });
-}
-
-function applyAction(action) {
-  Object.entries(action.effects).forEach(([metric, value]) => {
-    state[metric] += value;
-  });
-}
-
-function applySynergy(action, event) {
-  const [primaryTag, secondaryTag] = event.bestTags;
-  const primaryScore = action.tags[primaryTag] || 0;
-  const secondaryScore = action.tags[secondaryTag] || 0;
-  const synergy = primaryScore * 2 + secondaryScore;
-
-  if (synergy >= 5) {
-    state.quality += 4;
-    state.motivation += 2;
-    state.burnoutRisk -= 2;
-    return "Решение хорошо попало в контекст события.";
-  }
-
-  if (synergy >= 2) {
-    state.quality += 2;
-    return "Решение частично помогло стабилизировать ситуацию.";
-  }
-
-  if (synergy <= -3) {
-    state.quality -= 4;
-    state.emotion -= 3;
-    state.burnoutRisk += 3;
-    return "Подход не совпал с причиной проблемы и усилил напряжение.";
-  }
-
-  return "Эффект оказался смешанным: часть задач решилась, часть — отложилась.";
-}
-
-function updateDerivedMetrics(eventPressure = 0, action = null) {
-  const moodFactor = (state.motivation * 0.45 + state.emotion * 0.45) - state.fatigue * 0.25;
-  const baseDrift = (moodFactor - 45) * 0.1;
-  state.quality += baseDrift;
-
-  if (action && action.id === "trainAndExplain") {
-    state.motivation += 2;
-    state.burnoutRisk -= 1;
-  }
-
-  const criticalMotivation = state.motivation < 25;
-  const criticalEmotion = state.emotion < 25;
-
-  state.criticalStreak.motivation = criticalMotivation ? state.criticalStreak.motivation + 1 : 0;
-  state.criticalStreak.emotion = criticalEmotion ? state.criticalStreak.emotion + 1 : 0;
-
-  if (criticalMotivation || criticalEmotion) {
-    state.criticalMoments += 1;
-  }
-
-  if (state.criticalStreak.motivation >= 2 || state.criticalStreak.emotion >= 2) {
-    state.burnoutRisk += 5 + eventPressure;
-    state.fatigue += 3;
-  }
-
-  if (state.fatigue > 70) {
-    state.emotion -= 3;
-    state.quality -= 2;
-  }
-
-  if (state.burnoutRisk > 75) {
-    state.motivation -= 4;
-    state.emotion -= 4;
-  }
-
-  normalizeState();
-}
-
-function getRandomEvent() {
-  return eventPool[Math.floor(Math.random() * eventPool.length)];
-}
-
-function setStatus(text = "") {
-  elements.status.textContent = text;
-}
-
-function updateUI() {
-  elements.motivation.textContent = state.motivation;
-  elements.emotion.textContent = state.emotion;
-  elements.quality.textContent = state.quality;
-  elements.fatigue.textContent = state.fatigue;
-
-  elements.motivationBar.value = state.motivation;
-  elements.emotionBar.value = state.emotion;
-  elements.qualityBar.value = state.quality;
-  elements.fatigueBar.value = state.fatigue;
-
-  updateCharacterSprite();
-}
-
-function snapshotTurn(action) {
-  state.timeline.push({
-    turn: state.turnsPlayed,
-    action: action.label,
-    motivation: state.motivation,
-    emotion: state.emotion,
-    quality: state.quality,
-    fatigue: state.fatigue,
-    burnoutRisk: state.burnoutRisk
-  });
-}
-
-function triggerEvent() {
-  if (state.gameOver) return;
-
-  if (state.turnsPlayed >= state.maxTurns) {
-    endShift();
-    return;
-  }
-
-  const event = getRandomEvent();
-  state.currentEvent = event;
-  state.waitingForAction = true;
-  state.turnsPlayed += 1;
-
-  applyEventImpact(event);
-  updateDerivedMetrics(event.pressure);
-
-  normalizeState();
-  elements.message.textContent = `Событие (${event.category}): ${event.text}`;
-  setStatus(`Ход ${state.turnsPlayed} из ${state.maxTurns} · Риск выгорания: ${state.burnoutRisk}%`);
-  updateUI();
-}
-
-function scheduleNextEvent() {
-  window.setTimeout(() => {
-    if (!state.gameOver) {
-      triggerEvent();
-    }
-  }, 2200);
-}
-
-function handleAction(actionId) {
-  if (state.gameOver || !state.waitingForAction || !state.currentEvent) return;
-
-  const action = actions.find((item) => item.id === actionId);
-  if (!action) return;
-
-  state.actionStats.byAction[action.id] = (state.actionStats.byAction[action.id] || 0) + 1;
-  state.actionStats[action.type] += 1;
-
-  applyAction(action);
-  const resultText = applySynergy(action, state.currentEvent);
-  updateDerivedMetrics(state.currentEvent.pressure, action);
-
-  normalizeState();
-  snapshotTurn(action);
-  updateUI();
-
-  elements.message.textContent = `${resultText} ${action.note}`;
-
-  state.currentEvent = null;
-  state.waitingForAction = false;
-  scheduleNextEvent();
-}
-
-function getTrend(start, end) {
-  const delta = end - start;
-  if (delta > 7) return "рост";
-  if (delta < -7) return "снижение";
-  return "колебания без выраженного тренда";
-}
-
-function classifyLeadershipStyle() {
-  const supportive = state.actionStats.supportive;
-  const directive = state.actionStats.directive;
-  const critical = state.criticalMoments;
-  const fatigueEnd = state.fatigue;
-
-  if (supportive >= directive + 3 && state.quality >= 60) return "Наставник";
-  if (directive >= supportive + 3 && critical <= 3) return "Контролёр";
-  if (critical >= 6 && directive >= supportive) return "Пожарный";
-  if (directive >= supportive + 2 && fatigueEnd > 65) return "Микроменеджер";
-  if (supportive >= directive + 2 && state.quality < 55) return "Популист";
-  return supportive >= directive ? "Наставник" : "Контролёр";
-}
-
-function generateFeedback(style) {
-  const parts = {
-    Наставник: "Вы регулярно поддерживали сотрудника, удерживали мотивацию и эмоциональный фон. Сильная сторона — доверие и устойчивость, зона роста — быстрее реагировать директивно в процессных сбоях.",
-    "Контролёр": "Вы уверенно управляли качеством и стандартами. Это помогает держать результат, но важно не допускать накопления усталости и эмоционального охлаждения сотрудника.",
-    "Пожарный": "Вы умеете быстро тушить кризисы и вытягивать смену в сложных ситуациях. Однако частое управление в режиме аврала повышает риск выгорания и требует профилактики заранее.",
-    "Микроменеджер": "Вы активно вмешивались в детали и добивались краткосрочного контроля. Цена такого подхода — рост усталости и снижение автономности сотрудника.",
-    Популист: "Вы делали ставку на комфорт и лояльность сотрудника. Атмосфера улучшалась, но части решений не хватило жёсткости для стабильного качества процессов."
+(function () {
+  const НАСТРОЙКИ = {
+    минХодов: 10,
+    максХодов: 15,
+    критПорог: 25
   };
 
-  return parts[style];
-}
+  const СПРАЙТЫ = {
+    happy: "assets/happy.png",
+    neutral: "assets/neutral.png",
+    stressed: "assets/stressed.png",
+    angry: "assets/angry.png",
+    tired: "assets/tired.png"
+  };
 
-function endShift() {
-  state.gameOver = true;
-  state.waitingForAction = false;
-
-  const first = state.timeline[0] || state;
-  const last = state.timeline[state.timeline.length - 1] || state;
-  const style = classifyLeadershipStyle();
-
-  const report = [
-    "Смена завершена. Итоговая аналитика:",
-    `Поддерживающих действий: ${state.actionStats.supportive}.`,
-    `Директивных действий: ${state.actionStats.directive}.`,
-    `Критических состояний сотрудника: ${state.criticalMoments}.`,
-    `Динамика мотивации: ${getTrend(first.motivation, last.motivation)} (${first.motivation} → ${last.motivation}).`,
-    `Динамика эмоций: ${getTrend(first.emotion, last.emotion)} (${first.emotion} → ${last.emotion}).`,
-    `Динамика качества: ${getTrend(first.quality, last.quality)} (${first.quality} → ${last.quality}).`,
-    `Динамика усталости: ${getTrend(first.fatigue, last.fatigue)} (${first.fatigue} → ${last.fatigue}).`,
-    `Ваш управленческий стиль: ${style}.`,
-    generateFeedback(style)
+  const ДЕЙСТВИЯ = [
+    { id: "praiseEmployee", label: "Похвалить сотрудника", тип: "поддерживающее", эффект: { motivation: 10, emotion: 7, fatigue: -2, burnoutRisk: -2 }, кКачеству: -2 },
+    { id: "personalTalk", label: "Провести личный разговор", тип: "поддерживающее", эффект: { motivation: 6, emotion: 12, fatigue: -5, burnoutRisk: -3 }, кКачеству: -4 },
+    { id: "correctiveFeedback", label: "Дать корректирующую обратную связь", тип: "директивное", эффект: { motivation: -4, emotion: -7, fatigue: 4, burnoutRisk: 3 }, кКачеству: 8 },
+    { id: "redistributeLoad", label: "Перераспределить нагрузку", тип: "поддерживающее", эффект: { motivation: 4, emotion: 6, fatigue: -9, burnoutRisk: -4 }, кКачеству: -3 },
+    { id: "speedUpPace", label: "Ускорить темп работы", тип: "директивное", эффект: { motivation: -6, emotion: -9, fatigue: 11, burnoutRisk: 7 }, кКачеству: 9 },
+    { id: "trainAndExplain", label: "Обучить и объяснить процесс", тип: "поддерживающее", эффект: { motivation: 5, emotion: 4, fatigue: 2, burnoutRisk: -2 }, кКачеству: -7 }
   ];
 
-  elements.message.textContent = report.join(" ");
-  setStatus("Смена закрыта. Можно перезагрузить страницу и попробовать другую стратегию.");
-}
+  const СОБЫТИЯ = {
+    clients: [
+      { категория: "Клиенты", текст: "Клиент скандалит из-за задержки заказа.", эффект: { emotion: -7, fatigue: 3 }, контекст: { срочность: 2, конфликт: 2, хаос: 1, обучение: 0 } },
+      { категория: "Клиенты", текст: "Волна возвратов, очередь стремительно растёт.", эффект: { quality: -3, fatigue: 4, motivation: -2 }, контекст: { срочность: 2, конфликт: 1, хаос: 2, обучение: 0 } },
+      { категория: "Клиенты", текст: "VIP-клиент просит нестандартную срочную отгрузку.", эффект: { quality: -2, emotion: -4 }, контекст: { срочность: 2, конфликт: 1, хаос: 1, обучение: 0 } },
+      { категория: "Клиенты", текст: "Клиенты пришли раньше срока из-за ошибки статусов.", эффект: { fatigue: 5, emotion: -4, quality: -2 }, контекст: { срочность: 2, конфликт: 1, хаос: 2, обучение: 0 } },
+      { категория: "Клиенты", текст: "В чате поддержки всплеск негатива по качеству выдачи.", эффект: { quality: -4, emotion: -3 }, контекст: { срочность: 2, конфликт: 1, хаос: 0, обучение: 1 } }
+    ],
+    processes: [
+      { категория: "Процессы", текст: "Новый регламент внедрили без нормального инструктажа.", эффект: { motivation: -3, quality: -3 }, контекст: { срочность: 1, конфликт: 0, хаос: 1, обучение: 2 } },
+      { категория: "Процессы", текст: "Сканер маркировки работает с перебоями.", эффект: { quality: -4, fatigue: 5 }, контекст: { срочность: 1, конфликт: 0, хаос: 2, обучение: 0 } },
+      { категория: "Процессы", текст: "Внезапный аудит запросил идеальные документы.", эффект: { emotion: -4, fatigue: 4, quality: -2 }, контекст: { срочность: 2, конфликт: 0, хаос: 1, обучение: 1 } },
+      { категория: "Процессы", текст: "Соседняя смена передала незакрытые хвосты.", эффект: { quality: -4, emotion: -3 }, контекст: { срочность: 1, конфликт: 1, хаос: 1, обучение: 0 } },
+      { категория: "Процессы", текст: "Есть идея ускорить сортировку, но нужно учить команду.", эффект: { motivation: 2, quality: 1 }, контекст: { срочность: 0, конфликт: 0, хаос: 1, обучение: 2 } }
+    ],
+    inner: [
+      { категория: "Внутреннее состояние сотрудника", текст: "Сотрудник выглядит вымотанным и заторможенным.", эффект: { fatigue: 8, emotion: -5 }, контекст: { срочность: 0, конфликт: 0, хаос: 0, обучение: 1 } },
+      { категория: "Внутреннее состояние сотрудника", текст: "После ошибки сотрудник боится проявлять инициативу.", эффект: { motivation: -8, emotion: -4 }, контекст: { срочность: 0, конфликт: 0, хаос: 0, обучение: 2 } },
+      { категория: "Внутреннее состояние сотрудника", текст: "Сотрудник отвечает резко даже на обычные вопросы.", эффект: { emotion: -8, burnoutRisk: 4 }, контекст: { срочность: 0, конфликт: 2, хаос: 0, обучение: 1 } },
+      { категория: "Внутреннее состояние сотрудника", текст: "Сотрудник жалуется на рутину и отсутствие развития.", эффект: { motivation: -7, emotion: -3 }, контекст: { срочность: 0, конфликт: 0, хаос: 0, обучение: 2 } },
+      { категория: "Внутреннее состояние сотрудника", текст: "Сотрудник просит больше самостоятельности.", эффект: { motivation: -5, emotion: -2 }, контекст: { срочность: 0, конфликт: 1, хаос: 0, обучение: 1 } }
+    ],
+    team: [
+      { категория: "Коллектив", текст: "Коллега ушёл на больничный, нагрузка выросла.", эффект: { fatigue: 7, emotion: -4, quality: -2 }, контекст: { срочность: 1, конфликт: 0, хаос: 1, обучение: 0 } },
+      { категория: "Коллектив", текст: "В команде спор о распределении сложных задач.", эффект: { emotion: -6, motivation: -3 }, контекст: { срочность: 0, конфликт: 2, хаос: 0, обучение: 0 } },
+      { категория: "Коллектив", текст: "Стажёр постоянно просит подсказки и тормозит поток.", эффект: { fatigue: 4, quality: -3 }, контекст: { срочность: 1, конфликт: 0, хаос: 1, обучение: 2 } },
+      { категория: "Коллектив", текст: "Команда просит чётче обозначить приоритеты.", эффект: { quality: -2, motivation: -2 }, контекст: { срочность: 0, конфликт: 1, хаос: 1, обучение: 1 } },
+      { категория: "Коллектив", текст: "Опытный коллега готов помочь при грамотном распределении.", эффект: { quality: 2, emotion: 2 }, контекст: { срочность: 0, конфликт: 0, хаос: 0, обучение: 1 } }
+    ]
+  };
 
-function renderActions() {
-  elements.actionsContainer.innerHTML = "";
+  const ВСЕ_СОБЫТИЯ = Object.values(СОБЫТИЯ).flat();
 
-  actions.forEach((action) => {
-    state.actionStats.byAction[action.id] = 0;
+  const состояние = {
+    ход: 0,
+    максимумХодов: randomInt(НАСТРОЙКИ.минХодов, НАСТРОЙКИ.максХодов),
+    motivation: 61,
+    emotion: 58,
+    quality: 60,
+    fatigue: 24,
+    burnoutRisk: 10,
+    обучениеБонус: 0,
+    стабильностьБонус: 0,
+    перегревШтраф: 0,
+    критСерия: { motivation: 0, emotion: 0 },
+    критическиеСостояния: 0,
+    поддерживающие: 0,
+    директивные: 0,
+    история: [],
+    текущееСобытие: null,
+    завершено: false
+  };
 
-    const button = document.createElement("button");
-    button.type = "button";
-    button.textContent = action.label;
-    button.addEventListener("click", () => handleAction(action.id));
-    elements.actionsContainer.appendChild(button);
-  });
-}
+  function $(id) { return document.getElementById(id); }
+  function safeProgress(el, value) { if (el) el.value = value; }
+  function ограничить(v) { return Math.max(0, Math.min(100, Math.round(v))); }
+  function randomInt(min, max) { return Math.floor(Math.random() * (max - min + 1)) + min; }
 
-function init() {
-  ensureDynamicStats();
-  renderActions();
-  updateUI();
-  setStatus(`Игра началась · Смена продлится ${state.maxTurns} ходов.`);
-  triggerEvent();
-}
+  function fallbackSpriteDataUri() {
+    const svg = `<svg xmlns='http://www.w3.org/2000/svg' width='220' height='220'>
+      <rect width='100%' height='100%' fill='#f7f7f7'/>
+      <circle cx='110' cy='75' r='38' fill='#222'/>
+      <rect x='62' y='122' width='96' height='70' rx='10' fill='#222'/>
+      <text x='110' y='210' text-anchor='middle' font-size='16' font-family='sans-serif' fill='#444'>Персонаж</text>
+    </svg>`;
+    return `data:image/svg+xml;utf8,${encodeURIComponent(svg)}`;
+  }
 
-init();
+  function получитьUI() {
+    return {
+      motivation: $("motivation"),
+      emotion: $("emotion"),
+      quality: $("quality"),
+      fatigue: $("fatigue"),
+      motivationBar: $("motivationBar"),
+      emotionBar: $("emotionBar"),
+      qualityBar: $("qualityBar"),
+      fatigueBar: $("fatigueBar"),
+      message: $("message"),
+      status: $("status"),
+      sprite: $("characterSprite"),
+      actions: document.querySelector(".actions")
+    };
+  }
+
+  function применитьЭффекты(эффект) {
+    Object.entries(эффект).forEach(([k, v]) => {
+      if (typeof состояние[k] === "number") состояние[k] += v;
+    });
+  }
+
+  function модификаторКонтекста(actionId, контекст) {
+    if (!контекст) return 0;
+    if (actionId === "speedUpPace") return контекст.срочность * 2 - контекст.конфликт;
+    if (actionId === "trainAndExplain") return контекст.обучение * 3 - контекст.срочность * 2;
+    if (actionId === "personalTalk") return контекст.конфликт * 2 - контекст.срочность;
+    if (actionId === "redistributeLoad") return контекст.хаос * 2 - контекст.срочность;
+    if (actionId === "correctiveFeedback") return контекст.срочность + (контекст.хаос > 1 ? 1 : 0) - контекст.конфликт;
+    if (actionId === "praiseEmployee") return контекст.конфликт + контекст.обучение - контекст.срочность;
+    return 0;
+  }
+
+  function пересчитатьКачество(мгновеннаяКоррекция = 0, контекст = { срочность: 0, хаос: 0 }) {
+    const база = 0.58 * состояние.motivation + 0.42 * состояние.emotion;
+    const штрафУсталости = Math.max(0, состояние.fatigue - 50) * 0.5;
+    const штрафВыгорания = состояние.burnoutRisk * 0.24;
+    const бонус = состояние.обучениеБонус * 0.9 + состояние.стабильностьБонус * 0.7;
+    const штраф = состояние.перегревШтраф * 0.9 + контекст.хаос * 1.2 + контекст.срочность * 0.7;
+    состояние.quality = ограничить(база - штрафУсталости - штрафВыгорания + бонус - штраф + мгновеннаяКоррекция);
+  }
+
+  function обновитьКритичность() {
+    состояние.критСерия.motivation = состояние.motivation <= НАСТРОЙКИ.критПорог ? состояние.критСерия.motivation + 1 : 0;
+    состояние.критСерия.emotion = состояние.emotion <= НАСТРОЙКИ.критПорог ? состояние.критСерия.emotion + 1 : 0;
+
+    const крит = состояние.motivation <= НАСТРОЙКИ.критПорог || состояние.emotion <= НАСТРОЙКИ.критПорог || состояние.fatigue >= 82;
+    if (крит) состояние.критическиеСостояния += 1;
+
+    if (состояние.критСерия.motivation >= 2 || состояние.критСерия.emotion >= 2) {
+      состояние.burnoutRisk += 5;
+      состояние.перегревШтраф += 1;
+    }
+  }
+
+  function нормализовать() {
+    состояние.motivation = ограничить(состояние.motivation);
+    состояние.emotion = ограничить(состояние.emotion);
+    состояние.fatigue = ограничить(состояние.fatigue);
+    состояние.burnoutRisk = ограничить(состояние.burnoutRisk);
+    состояние.обучениеБонус = ограничить(состояние.обучениеБонус);
+    состояние.стабильностьБонус = ограничить(состояние.стабильностьБонус);
+    состояние.перегревШтраф = ограничить(состояние.перегревШтраф);
+  }
+
+  function настроение() {
+    if (состояние.fatigue >= 80 || состояние.burnoutRisk >= 70) return "tired";
+    if (состояние.emotion <= 18 || состояние.motivation <= 18) return "angry";
+    if (состояние.emotion <= 35 || состояние.motivation <= 35 || состояние.fatigue >= 62) return "stressed";
+    if (состояние.motivation >= 72 && состояние.emotion >= 72 && состояние.fatigue < 45) return "happy";
+    return "neutral";
+  }
+
+  function обновитьСпрайт(ui) {
+    if (!ui.sprite) return;
+    ui.sprite.onerror = () => {
+      ui.sprite.onerror = null;
+      ui.sprite.src = fallbackSpriteDataUri();
+    };
+    ui.sprite.src = СПРАЙТЫ[настроение()] || СПРАЙТЫ.neutral;
+  }
+
+  function отрисовать(ui) {
+    if (ui.motivation) ui.motivation.textContent = состояние.motivation;
+    if (ui.emotion) ui.emotion.textContent = состояние.emotion;
+    if (ui.quality) ui.quality.textContent = состояние.quality;
+    if (ui.fatigue) ui.fatigue.textContent = состояние.fatigue;
+
+    safeProgress(ui.motivationBar, состояние.motivation);
+    safeProgress(ui.emotionBar, состояние.emotion);
+    safeProgress(ui.qualityBar, состояние.quality);
+    safeProgress(ui.fatigueBar, состояние.fatigue);
+
+    обновитьСпрайт(ui);
+  }
+
+  function стильЛидерства() {
+    const всего = состояние.поддерживающие + состояние.директивные;
+    const доляДир = всего ? состояние.директивные / всего : 0;
+    if (состояние.поддерживающие >= состояние.директивные + 3 && состояние.критическиеСостояния <= 2) return "Наставник";
+    if (доляДир >= 0.72 && состояние.критическиеСостояния >= 3) return "Микроменеджер";
+    if (доляДир >= 0.62 && состояние.quality >= 65) return "Контролёр";
+    if (состояние.критическиеСостояния >= 5) return "Пожарный";
+    return "Популист";
+  }
+
+  function фидбек(стиль) {
+    const карта = {
+      Наставник: "Вы бережно поддерживали сотрудника и снизили риск выгорания. Добавьте точечную директивность в процессных сбоях.",
+      Контролёр: "Вы хорошо держали стандарт качества. Чтобы сохранить ресурс команды, усиливайте поддерживающие действия.",
+      Пожарный: "Вы успешно тушили острые проблемы, но реактивности было много. Усильте профилактику рисков.",
+      Микроменеджер: "Вы делали ставку на жёсткий темп и контроль. Это помогает краткосрочно, но ускоряет усталость и выгорание.",
+      Популист: "Вы сохранили мягкий климат, но местами не хватило структурной коррекции и жёсткости в приоритетах."
+    };
+    return карта[стиль] || "Смешанный стиль: есть и сильные решения, и зоны роста.";
+  }
+
+  function динамика(ключ) {
+    const старт = состояние.история[0]?.до?.[ключ] ?? состояние[ключ];
+    const дельта = Math.round(состояние[ключ] - старт);
+    return `${дельта > 0 ? "+" : ""}${дельта}`;
+  }
+
+  function завершитьСмену(ui) {
+    состояние.завершено = true;
+    const стиль = стильЛидерства();
+
+    if (ui.message) {
+      ui.message.innerHTML = [
+        "<strong>Итоговый отчёт смены</strong>",
+        `Смена завершена. Ваш стиль: ${стиль}.`,
+        `Поддерживающих действий: ${состояние.поддерживающие}.`,
+        `Директивных действий: ${состояние.директивные}.`,
+        `Критических состояний: ${состояние.критическиеСостояния}.`,
+        `Динамика мотивации: ${динамика("motivation")}.`,
+        `Динамика эмоций: ${динамика("emotion")}.`,
+        `Динамика качества: ${динамика("quality")}.`,
+        `Динамика усталости: ${динамика("fatigue")}.`,
+        "",
+        фидбек(стиль)
+      ].join("<br>");
+    }
+
+    if (ui.status) ui.status.textContent = "Симуляция завершена. Можно начать новую смену.";
+    if (ui.actions) ui.actions.innerHTML = '<button type="button" onclick="window.location.reload()">Начать новую смену</button>';
+  }
+
+  function следующийЭтап(ui) {
+    состояние.текущееСобытие = ВСЕ_СОБЫТИЯ[randomInt(0, ВСЕ_СОБЫТИЯ.length - 1)];
+    применитьЭффекты(состояние.текущееСобытие.эффект);
+    пересчитатьКачество(0, состояние.текущееСобытие.контекст);
+    нормализовать();
+    отрисовать(ui);
+
+    if (ui.message) {
+      ui.message.innerHTML = `<strong>${состояние.текущееСобытие.категория}.</strong> ${состояние.текущееСобытие.текст}`;
+    }
+    if (ui.status) {
+      ui.status.textContent = `Ход ${состояние.ход + 1} из ${состояние.максимумХодов}. Выберите управленческое действие.`;
+    }
+  }
+
+  function обработатьДействие(ui, действие) {
+    if (состояние.завершено) return;
+
+    const до = {
+      motivation: состояние.motivation,
+      emotion: состояние.emotion,
+      quality: состояние.quality,
+      fatigue: состояние.fatigue,
+      burnoutRisk: состояние.burnoutRisk
+    };
+
+    применитьЭффекты(действие.эффект);
+
+    if (действие.id === "trainAndExplain") состояние.обучениеБонус += 3;
+    if (действие.id === "personalTalk" || действие.id === "redistributeLoad") состояние.стабильностьБонус += 2;
+    if (действие.id === "speedUpPace") состояние.перегревШтраф += 2;
+    if (действие.id === "correctiveFeedback") состояние.перегревШтраф += 1;
+
+    if (действие.тип === "поддерживающее") состояние.поддерживающие += 1;
+    else состояние.директивные += 1;
+
+    обновитьКритичность();
+
+    const контекст = состояние.текущееСобытие?.контекст || { срочность: 0, конфликт: 0, хаос: 0, обучение: 0 };
+    const коррекция = действие.кКачеству + модификаторКонтекста(действие.id, контекст);
+    пересчитатьКачество(коррекция, контекст);
+
+    состояние.стабильностьБонус = Math.max(0, состояние.стабильностьБонус - 0.15);
+    состояние.перегревШтраф = Math.max(0, состояние.перегревШтраф - 0.05);
+
+    нормализовать();
+    отрисовать(ui);
+
+    состояние.история.push({
+      ход: состояние.ход + 1,
+      событие: состояние.текущееСобытие?.текст || "",
+      действие: действие.label,
+      до,
+      после: {
+        motivation: состояние.motivation,
+        emotion: состояние.emotion,
+        quality: состояние.quality,
+        fatigue: состояние.fatigue,
+        burnoutRisk: состояние.burnoutRisk
+      }
+    });
+
+    состояние.ход += 1;
+
+    if (состояние.ход >= состояние.максимумХодов) {
+      завершитьСмену(ui);
+    } else {
+      следующийЭтап(ui);
+    }
+  }
+
+  function создатьКнопки(ui) {
+    if (!ui.actions) return;
+    ui.actions.innerHTML = "";
+
+    ДЕЙСТВИЯ.forEach((действие) => {
+      const b = document.createElement("button");
+      b.type = "button";
+      b.textContent = действие.label;
+      b.addEventListener("click", () => обработатьДействие(ui, действие));
+      ui.actions.appendChild(b);
+    });
+  }
+
+  function init() {
+    const ui = получитьUI();
+
+    if (!ui.actions || !ui.sprite || !ui.message) {
+      console.error("Не найдены ключевые элементы интерфейса. Проверьте index.html");
+      return;
+    }
+
+    создатьКнопки(ui); // сразу убирает неактивную кнопку "Загрузка симуляции…"
+    пересчитатьКачество();
+    нормализовать();
+    отрисовать(ui);
+    следующийЭтап(ui);
+  }
+
+  if (document.readyState === "loading") {
+    document.addEventListener("DOMContentLoaded", init);
+  } else {
+    init();
+  }
+})();
