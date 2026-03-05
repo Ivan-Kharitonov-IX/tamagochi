@@ -5,14 +5,23 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Менеджер Тамагочи</title>
   <link rel="stylesheet" href="style.css" />
-  <script src="script.js?v=3.2.0" defer></script>
+  <style>
+    /* Резервные стили на случай, если style.css не скачан */
+    body { margin: 0; font-family: system-ui, sans-serif; background: #f2f2f2; display: flex; justify-content: center; }
+    .app { width: 100%; max-width: 420px; background: #fff; min-height: 100vh; padding: 20px; box-sizing: border-box; }
+    .character { display: flex; justify-content: center; margin-bottom: 20px; }
+    .character img { width: 180px; image-rendering: pixelated; }
+    .actions button { width: 100%; padding: 14px; margin-bottom: 10px; border: none; background: #000; color: #fff; cursor: pointer; }
+    progress { width: 100%; height: 18px; }
+  </style>
+  <script src="script.js?v=4.0.0" defer></script>
 </head>
 <body>
   <div class="app">
     <h1>Сотрудник пункта выдачи</h1>
 
     <div class="character">
-      <img id="characterSprite" src="assets/neutral.png" alt="Персонаж" />
+      <img id="characterSprite" alt="Персонаж" src="data:image/svg+xml;utf8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='220' height='220'%3E%3Crect width='100%25' height='100%25' fill='%23f7f7f7'/%3E%3Ccircle cx='110' cy='75' r='38' fill='%23222'/%3E%3Crect x='62' y='122' width='96' height='70' rx='10' fill='%23222'/%3E%3Ctext x='110' y='210' text-anchor='middle' font-size='16' font-family='sans-serif' fill='%23444'%3EПерсонаж%3C/text%3E%3C/svg%3E" />
     </div>
 
     <div class="stats">
@@ -40,5 +49,29 @@
 
     <p id="status"></p>
   </div>
+
+  <script>
+    // Резервный запуск: если script.js не загрузился (например, скачали только index.html)
+    window.addEventListener("load", function () {
+      if (window.__TAMAGOCHI_READY__) return;
+      if (typeof window.ТамагочиИнициализация === "function") {
+        window.ТамагочиИнициализация();
+        return;
+      }
+
+      const actions = document.querySelector(".actions");
+      const message = document.getElementById("message");
+      const status = document.getElementById("status");
+      if (!actions) return;
+
+      actions.innerHTML = '<button type="button" id="fallbackStart">Начать локальную демо-версию</button>';
+      const startButton = document.getElementById("fallbackStart");
+      startButton.addEventListener("click", function () {
+        actions.innerHTML = '<button type="button">Похвалить сотрудника</button><button type="button">Провести личный разговор</button><button type="button">Дать корректирующую обратную связь</button><button type="button">Перераспределить нагрузку</button><button type="button">Ускорить темп работы</button><button type="button">Обучить и объяснить процесс</button>';
+        if (message) message.textContent = "Запущен резервный режим. Чтобы работала полная версия игры, скачайте вместе с index.html файлы script.js, style.css и папку assets.";
+        if (status) status.textContent = "Резервный режим активен: интерфейс работает, кнопки активны.";
+      });
+    });
+  </script>
 </body>
 </html>
