@@ -14,7 +14,7 @@
     .actions button { width: 100%; padding: 14px; margin-bottom: 10px; border: none; background: #000; color: #fff; cursor: pointer; }
     progress { width: 100%; height: 18px; }
   </style>
-  <script src="script.js?v=4.1.0" defer></script>
+  <script src="script.js" defer></script>
 </head>
 <body>
   <div class="app">
@@ -53,24 +53,39 @@
   <script>
     // Резервный запуск: если script.js не загрузился (например, скачали только index.html)
     window.addEventListener("load", function () {
-      if (window.__TAMAGOCHI_READY__) return;
-      if (typeof window.ТамагочиИнициализация === "function") {
-        window.ТамагочиИнициализация();
-        return;
-      }
+      setTimeout(function () {
+        if (window.__TAMAGOCHI_READY__) return;
+        if (typeof window.ТамагочиИнициализация === "function") {
+          window.ТамагочиИнициализация();
+          return;
+        }
 
-      const actions = document.querySelector(".actions");
-      const message = document.getElementById("message");
-      const status = document.getElementById("status");
-      if (!actions) return;
+        const actions = document.querySelector(".actions");
+        const message = document.getElementById("message");
+        const status = document.getElementById("status");
+        if (!actions) return;
 
-      actions.innerHTML = '<button type="button" id="fallbackStart">Начать локальную демо-версию</button>';
-      const startButton = document.getElementById("fallbackStart");
-      startButton.addEventListener("click", function () {
-        actions.innerHTML = '<button type="button">Похвалить сотрудника</button><button type="button">Провести личный разговор</button><button type="button">Дать корректирующую обратную связь</button><button type="button">Перераспределить нагрузку</button><button type="button">Ускорить темп работы</button><button type="button">Обучить и объяснить процесс</button>';
-        if (message) message.textContent = "Запущен резервный режим. Чтобы работала полная версия игры, скачайте вместе с index.html файлы script.js, style.css и папку assets.";
-        if (status) status.textContent = "Резервный режим активен: интерфейс работает, кнопки активны.";
-      });
+        const firstBtn = actions.querySelector("button");
+        const играУжеЗапущена = firstBtn && !firstBtn.disabled && firstBtn.textContent !== "Загрузка симуляции…";
+        if (играУжеЗапущена) return;
+
+        if (typeof window.ТамагочиИнициализация === "function") {
+          try {
+            window.ТамагочиИнициализация();
+            if (window.__TAMAGOCHI_READY__) return;
+          } catch (e) {
+            console.warn("Не удалось запустить основной скрипт, включён fallback:", e);
+          }
+        }
+
+        actions.innerHTML = '<button type="button" id="fallbackStart">Начать локальную демо-версию</button>';
+        const startButton = document.getElementById("fallbackStart");
+        startButton.addEventListener("click", function () {
+          actions.innerHTML = '<button type="button">Похвалить сотрудника</button><button type="button">Провести личный разговор</button><button type="button">Дать корректирующую обратную связь</button><button type="button">Перераспределить нагрузку</button><button type="button">Ускорить темп работы</button><button type="button">Обучить и объяснить процесс</button>';
+          if (message) message.textContent = "Запущен резервный режим. Чтобы работала полная версия игры, скачайте вместе с index.html файлы script.js, style.css и папку assets.";
+          if (status) status.textContent = "Резервный режим активен: интерфейс работает, кнопки активны.";
+        });
+      }, 1200);
     });
   </script>
 </body>
