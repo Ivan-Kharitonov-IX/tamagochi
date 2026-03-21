@@ -1,3 +1,24 @@
+let scorm = null;
+
+function initSCORM() {
+  if (window.API) {
+    scorm = window.API;
+    scorm.LMSInitialize("");
+  }
+}
+
+function sendScore(score) {
+  if (scorm) {
+    scorm.LMSSetValue("cmi.core.score.raw", score);
+    scorm.LMSCommit("");
+  }
+}
+
+function finishSCORM() {
+  if (scorm) {
+    scorm.LMSFinish("");
+  }
+}
 (function () {
   window.__TAMAGOCHI_READY__ = window.__TAMAGOCHI_READY__ || false;
   const НАСТРОЙКИ = {
