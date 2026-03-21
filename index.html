@@ -3,17 +3,8 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Менеджер Тамагочи</title>
+  <title>Manager Tamagotchi</title>
   <link rel="stylesheet" href="style.css" />
-  <style>
-    /* Резервные стили на случай, если style.css не скачан */
-    body { margin: 0; font-family: system-ui, sans-serif; background: #f2f2f2; display: flex; justify-content: center; }
-    .app { width: 100%; max-width: 420px; background: #fff; min-height: 100vh; padding: 20px; box-sizing: border-box; }
-    .character { display: flex; justify-content: center; margin-bottom: 20px; }
-    .character img { width: 180px; image-rendering: pixelated; }
-    .actions button { width: 100%; padding: 14px; margin-bottom: 10px; border: none; background: #000; color: #fff; cursor: pointer; }
-    progress { width: 100%; height: 18px; }
-  </style>
   <script src="script.js" defer></script>
 </head>
 <body>
@@ -21,26 +12,28 @@
     <h1>Сотрудник пункта выдачи</h1>
 
     <div class="character">
-      <img id="characterSprite" alt="Персонаж" src="assets/neutral.png" />
+      <img id="characterSprite" src="assets/neutral.png" alt="Персонаж" />
     </div>
 
     <div class="stats">
       <div>🔥 Мотивация: <span id="motivation">0</span>
         <progress id="motivationBar" value="0" max="100"></progress>
       </div>
-      <div>😊 Эмоциональное состояние: <span id="emotion">0</span>
+      <div>😊 Эмоциональный фон: <span id="emotion">0</span>
         <progress id="emotionBar" value="0" max="100"></progress>
       </div>
       <div>📊 Качество работы: <span id="quality">0</span>
         <progress id="qualityBar" value="0" max="100"></progress>
       </div>
-      <div>😴 Уровень усталости: <span id="fatigue">0</span>
-        <progress id="fatigueBar" value="0" max="100"></progress>
-      </div>
     </div>
 
     <div class="actions">
-      <button type="button" disabled>Загрузка симуляции…</button>
+      <button type="button" onclick="handleAction('support')">Поддержать сотрудника</button>
+      <button type="button" onclick="handleAction('clarify')">Прояснить задачу</button>
+      <button type="button" onclick="handleAction('feedback')">Дать обратную связь</button>
+      <button type="button" onclick="handleAction('redistribute')">Перераспределить нагрузку</button>
+      <button type="button" onclick="handleAction('pressure')">Усилить контроль</button>
+      <button type="button" onclick="handleAction('develop')">Развивать сотрудника</button>
     </div>
 
     <div class="event">
@@ -49,44 +42,5 @@
 
     <p id="status"></p>
   </div>
-
-  <script>
-    // Резервный запуск: если script.js не загрузился (например, скачали только index.html)
-    window.addEventListener("load", function () {
-      setTimeout(function () {
-        if (window.__TAMAGOCHI_READY__) return;
-        if (typeof window.ТамагочиИнициализация === "function") {
-          window.ТамагочиИнициализация();
-          return;
-        }
-
-        const actions = document.querySelector(".actions");
-        const message = document.getElementById("message");
-        const status = document.getElementById("status");
-        if (!actions) return;
-
-        const firstBtn = actions.querySelector("button");
-        const играУжеЗапущена = firstBtn && !firstBtn.disabled && firstBtn.textContent !== "Загрузка симуляции…";
-        if (играУжеЗапущена) return;
-
-        if (typeof window.ТамагочиИнициализация === "function") {
-          try {
-            window.ТамагочиИнициализация();
-            if (window.__TAMAGOCHI_READY__) return;
-          } catch (e) {
-            console.warn("Не удалось запустить основной скрипт, включён fallback:", e);
-          }
-        }
-
-        actions.innerHTML = '<button type="button" id="fallbackStart">Начать локальную демо-версию</button>';
-        const startButton = document.getElementById("fallbackStart");
-        startButton.addEventListener("click", function () {
-          actions.innerHTML = '<button type="button">Похвалить сотрудника</button><button type="button">Провести личный разговор</button><button type="button">Дать корректирующую обратную связь</button><button type="button">Перераспределить нагрузку</button><button type="button">Ускорить темп работы</button><button type="button">Обучить и объяснить процесс</button>';
-          if (message) message.textContent = "Запущен резервный режим. Чтобы работала полная версия игры, скачайте вместе с index.html файлы script.js, style.css и папку assets.";
-          if (status) status.textContent = "Резервный режим активен: интерфейс работает, кнопки активны.";
-        });
-      }, 1200);
-    });
-  </script>
 </body>
 </html>
