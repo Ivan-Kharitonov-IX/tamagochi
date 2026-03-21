@@ -19,310 +19,376 @@ function finishSCORM() {
     scorm.LMSFinish("");
   }
 }
-(function () {
-  window.__TAMAGOCHI_READY__ = window.__TAMAGOCHI_READY__ || false;
-  const НАСТРОЙКИ = {
-    ходовВСмене: 15,
-    критПорог: 25,
-    порогУсталости: 80
+const state = {
+  motivation: 60,
+  emotion: 60,
+  quality: 60,
+  currentEvent: null,
+  waitingForAction: false,
+  eventsCount: 0,
+  maxEvents: 18,
+  gameOver: false
+};
+
+const sprites = {
+  happy: "assets/happy.png",
+  neutral: "assets/neutral.png",
+  stressed: "assets/stressed.png",
+  angry: "assets/angry.png",
+  tired: "assets/tired.png"
+};
+
+const actions = {
+  support: {
+    id: "support",
+    label: "Поддержать сотрудника",
+    base: { motivation: 10, emotion: 12, quality: -4 }
+  },
+  clarify: {
+    id: "clarify",
+    label: "Прояснить задачу",
+    base: { motivation: -2, emotion: -3, quality: 10 }
+  },
+  feedback: {
+    id: "feedback",
+    label: "Дать обратную связь",
+    base: { motivation: -3, emotion: -4, quality: 11 }
+  },
+  redistribute: {
+    id: "redistribute",
+    label: "Перераспределить нагрузку",
+    base: { motivation: 5, emotion: 6, quality: -6 }
+  },
+  pressure: {
+    id: "pressure",
+    label: "Усилить контроль",
+    base: { motivation: -10, emotion: -11, quality: 14 }
+  },
+  develop: {
+    id: "develop",
+    label: "Развивать сотрудника",
+    base: { motivation: 9, emotion: 3, quality: 7 }
+  }
+};
+
+const stats = {
+  actions: {
+    support: 0,
+    clarify: 0,
+    feedback: 0,
+    redistribute: 0,
+    pressure: 0,
+    develop: 0
+  },
+  negativeOutcomes: 0,
+  lowMotivationMoments: 0,
+  lowEmotionMoments: 0,
+  ignoredStateMoments: 0,
+  contextMatches: 0
+};
+
+const events = [
+  {
+    text: "Сотрдник ведёт две очереди одновременно и начинает путаться в заказах.",
+    category: "нагрузка",
+    sensitivity: { support: 1.1, clarify: 1.2, feedback: 0.8, redistribute: 1.6, pressure: -0.6, develop: 0.7 }
+  },
+  {
+    text: "В конце часа резко вырос поток клиентов, темп выдачи упал.",
+    category: "нагрузка",
+    sensitivity: { support: 0.8, clarify: 1.1, feedback: 0.9, redistribute: 1.7, pressure: 0.7, develop: 0.6 }
+  },
+  {
+    text: "Сотрудник просит помощь: не успевает и жалуется на усталость.",
+    category: "нагрузка",
+    sensitivity: { support: 1.7, clarify: 0.9, feedback: 0.7, redistribute: 1.5, pressure: -0.8, develop: 0.6 }
+  },
+  {
+    text: "Новая инструкция по возвратам написана неясно, сотрудники трактуют её по-разному.",
+    category: "процессы",
+    sensitivity: { support: 0.7, clarify: 1.8, feedback: 1.2, redistribute: 0.6, pressure: 0.5, develop: 1.1 }
+  },
+  {
+    text: "Система маркировки обновилась, в команде пошли ошибки сканирования.",
+    category: "процессы",
+    sensitivity: { support: 0.6, clarify: 1.6, feedback: 1.3, redistribute: 0.7, pressure: 0.8, develop: 1.4 }
+  },
+  {
+    text: "Сотрудник выполняет задачи механически и не замечает повторяющиеся ошибки.",
+    category: "процессы",
+    sensitivity: { support: 0.9, clarify: 1.1, feedback: 1.7, redistribute: 0.6, pressure: 0.9, develop: 1.2 }
+  },
+  {
+    text: "После жёсткого разговора с клиентом сотрудник стал раздражительным.",
+    category: "состояние",
+    sensitivity: { support: 1.8, clarify: 0.8, feedback: 0.9, redistribute: 1.1, pressure: -0.9, develop: 0.8 }
+  },
+  {
+    text: "Сотрудник работает стабильно, но заметно эмоционально выгорел.",
+    category: "состояние",
+    sensitivity: { support: 1.6, clarify: 0.9, feedback: 1.1, redistribute: 1.0, pressure: -0.8, develop: 1.3 }
+  },
+  {
+    text: "Сотрудник сомневается в себе после двух мелких ошибок подряд.",
+    category: "состояние",
+    sensitivity: { support: 1.7, clarify: 1.0, feedback: 1.2, redistribute: 0.9, pressure: -0.7, develop: 1.1 }
+  },
+  {
+    text: "Опытный сотрудник конфликтует с новичком из-за распределения задач.",
+    category: "команда",
+    sensitivity: { support: 1.2, clarify: 1.4, feedback: 1.1, redistribute: 1.3, pressure: 0.6, develop: 1.0 }
+  },
+  {
+    text: "Команда жалуется на неравномерные смены и несправедливую нагрузку.",
+    category: "команда",
+    sensitivity: { support: 1.0, clarify: 1.1, feedback: 0.9, redistribute: 1.8, pressure: -0.5, develop: 0.8 }
+  },
+  {
+    text: "Новичок тянется за сильным сотрудником и копирует его ошибки.",
+    category: "команда",
+    sensitivity: { support: 1.0, clarify: 1.2, feedback: 1.4, redistribute: 0.8, pressure: 0.7, develop: 1.7 }
+  },
+  {
+    text: "Ключевой сотрудник просит ранний уход, но вечерняя смена уже недоукомплектована.",
+    category: "дилеммы",
+    sensitivity: { support: 1.1, clarify: 1.2, feedback: 0.8, redistribute: 1.5, pressure: 1.0, develop: 0.7 }
+  },
+  {
+    text: "Клиент требует исключение из правила, и сотрудник ждёт вашего решения.",
+    category: "дилеммы",
+    sensitivity: { support: 0.7, clarify: 1.7, feedback: 1.1, redistribute: 0.6, pressure: 0.9, develop: 1.0 }
+  },
+  {
+    text: "Сотрудник просит обучение, но на смене нет запаса по времени.",
+    category: "дилеммы",
+    sensitivity: { support: 1.0, clarify: 0.8, feedback: 1.0, redistribute: 0.7, pressure: 0.6, develop: 1.9 }
+  },
+  {
+    text: "По KPI сегодня просадка, а сотрудник и так работает на пределе.",
+    category: "дилеммы",
+    sensitivity: { support: 1.2, clarify: 1.0, feedback: 1.1, redistribute: 1.1, pressure: -0.7, develop: 0.9 }
+  },
+  {
+    text: "Сотрудник выполняет норму, но инициативы и роста не видно.",
+    category: "процессы",
+    sensitivity: { support: 0.9, clarify: 1.0, feedback: 1.3, redistribute: 0.7, pressure: 0.8, develop: 1.8 }
+  },
+  {
+    text: "После сложной недели команда эмоционально просела, но план нужно закрыть.",
+    category: "состояние",
+    sensitivity: { support: 1.5, clarify: 0.9, feedback: 1.0, redistribute: 1.2, pressure: -0.6, develop: 1.1 }
+  }
+];
+
+const elements = {
+  motivation: document.getElementById("motivation"),
+  emotion: document.getElementById("emotion"),
+  quality: document.getElementById("quality"),
+  motivationBar: document.getElementById("motivationBar"),
+  emotionBar: document.getElementById("emotionBar"),
+  qualityBar: document.getElementById("qualityBar"),
+  message: document.getElementById("message"),
+  status: document.getElementById("status"),
+  characterSprite: document.getElementById("characterSprite")
+};
+
+const clamp = (value) => Math.max(0, Math.min(100, value));
+
+function normalize() {
+  state.motivation = clamp(state.motivation);
+  state.emotion = clamp(state.emotion);
+  state.quality = clamp(state.quality);
+}
+
+function getCharacterState() {
+  if (state.motivation < 30) return "tired";
+  if (state.emotion < 30) return "angry";
+  if (state.emotion < 45) return "stressed";
+  if (state.motivation > 75 && state.emotion > 70) return "happy";
+  return "neutral";
+}
+
+function updateCharacterSprite() {
+  elements.characterSprite.src = sprites[getCharacterState()] || sprites.neutral;
+}
+
+function updateQuality() {
+  const delta = Math.floor((state.motivation + state.emotion) / 28 - 3);
+  state.quality += delta;
+  normalize();
+}
+
+function getRandomEvent() {
+  return events[Math.floor(Math.random() * events.length)];
+}
+
+function setStatus(text = "") {
+  elements.status.textContent = text;
+}
+
+function updateUI() {
+  elements.motivation.textContent = state.motivation;
+  elements.emotion.textContent = state.emotion;
+  elements.quality.textContent = state.quality;
+
+  elements.motivationBar.value = state.motivation;
+  elements.emotionBar.value = state.emotion;
+  elements.qualityBar.value = state.quality;
+
+  updateCharacterSprite();
+}
+
+function triggerEvent() {
+  if (state.gameOver) return;
+
+  if (state.eventsCount >= state.maxEvents) {
+    endShift();
+    return;
+  }
+
+  state.currentEvent = getRandomEvent();
+  state.waitingForAction = true;
+  state.eventsCount += 1;
+
+  elements.message.textContent = `Событие (${state.currentEvent.category}): ${state.currentEvent.text}`;
+  setStatus(`Событие ${state.eventsCount} из ${state.maxEvents}`);
+  updateUI();
+}
+
+function scheduleNextEvent() {
+  window.setTimeout(() => {
+    if (!state.gameOver) {
+      triggerEvent();
+    }
+  }, 2200);
+}
+
+function applyActionWithContext(actionId, event) {
+  const action = actions[actionId];
+  if (!action || !event) return { totalDelta: 0, contextMultiplier: 1 };
+
+  const multiplier = event.sensitivity[actionId] ?? 1;
+  const resultDelta = { motivation: 0, emotion: 0, quality: 0 };
+
+  Object.keys(action.base).forEach((metric) => {
+    const baseValue = action.base[metric];
+    let contextualValue = Math.round(baseValue * multiplier);
+
+    if (multiplier < 0) {
+      contextualValue -= Math.sign(baseValue) * 2;
+    }
+
+    resultDelta[metric] += contextualValue;
+    state[metric] += contextualValue;
+  });
+
+  return {
+    totalDelta: resultDelta.motivation + resultDelta.emotion + resultDelta.quality,
+    contextMultiplier: multiplier,
+    resultDelta
+  };
+}
+
+function handleAction(actionId) {
+  if (state.gameOver || !state.waitingForAction || !state.currentEvent) return;
+
+  if (!actions[actionId]) return;
+
+  stats.actions[actionId] += 1;
+
+  const before = {
+    motivation: state.motivation,
+    emotion: state.emotion,
+    quality: state.quality
   };
 
-  const СПРАЙТЫ = {
-    happy: "assets/happy.png",
-    neutral: "assets/neutral.png",
-    stressed: "assets/stressed.png",
-    angry: "assets/angry.png",
-    tired: "assets/tired.png"
+  const outcome = applyActionWithContext(actionId, state.currentEvent);
+  normalize();
+  updateQuality();
+
+  const after = {
+    motivation: state.motivation,
+    emotion: state.emotion,
+    quality: state.quality
   };
 
-  const ДЕЙСТВИЯ = [
-    { id: "praiseEmployee", label: "Похвалить сотрудника", тип: "поддерживающее", эффект: { motivation: 9, emotion: 8, fatigue: -2, burnoutRisk: -2 }, базаКачества: -1 },
-    { id: "personalTalk", label: "Провести личный разговор", тип: "поддерживающее", эффект: { motivation: 6, emotion: 12, fatigue: -5, burnoutRisk: -3 }, базаКачества: -4 },
-    { id: "correctiveFeedback", label: "Дать корректирующую обратную связь", тип: "директивное", эффект: { motivation: -4, emotion: -7, fatigue: 4, burnoutRisk: 3 }, базаКачества: 7 },
-    { id: "redistributeLoad", label: "Перераспределить нагрузку", тип: "поддерживающее", эффект: { motivation: 4, emotion: 6, fatigue: -9, burnoutRisk: -4 }, базаКачества: -3 },
-    { id: "speedUpPace", label: "Ускорить темп работы", тип: "директивное", эффект: { motivation: -6, emotion: -9, fatigue: 10, burnoutRisk: 7 }, базаКачества: 8 },
-    { id: "trainAndExplain", label: "Обучить и объяснить процесс", тип: "поддерживающее", эффект: { motivation: 5, emotion: 4, fatigue: 2, burnoutRisk: -2 }, базаКачества: -7 }
+  const net = (after.motivation - before.motivation) + (after.emotion - before.emotion) + (after.quality - before.quality);
+
+  if (net < 0) {
+    stats.negativeOutcomes += 1;
+  } else if (outcome.contextMultiplier >= 1.2) {
+    stats.contextMatches += 1;
+  }
+
+  if (state.motivation < 35) {
+    stats.lowMotivationMoments += 1;
+  }
+
+  if (state.emotion < 35) {
+    stats.lowEmotionMoments += 1;
+  }
+
+  if ((before.motivation < 40 || before.emotion < 40) && (actionId === "pressure" || actionId === "clarify")) {
+    stats.ignoredStateMoments += 1;
+  }
+
+  const moodText = net >= 0 ? "Решение сработало в текущем контексте." : "Решение ухудшило ситуацию в текущем контексте.";
+  elements.message.textContent = `${moodText} (${actions[actionId].label})`;
+
+  updateUI();
+
+  state.currentEvent = null;
+  state.waitingForAction = false;
+  scheduleNextEvent();
+}
+
+function getDominantStyle() {
+  const totalActions = Object.values(stats.actions).reduce((sum, val) => sum + val, 0) || 1;
+  const pressureRate = stats.actions.pressure / totalActions;
+  const supportRate = stats.actions.support / totalActions;
+  const devRate = stats.actions.develop / totalActions;
+  const highNegative = stats.negativeOutcomes >= Math.ceil(state.maxEvents * 0.4);
+
+  if (pressureRate >= 0.3) {
+    return "Слишком часто использовали давление и контроль — качество местами росло, но эмоциональный фон просел.";
+  }
+
+  if (supportRate >= 0.35 && stats.actions.feedback + stats.actions.clarify < totalActions * 0.35) {
+    return "Сильный уклон в поддержку: атмосфера лучше, но управленческой жёсткости и структуры не хватило.";
+  }
+
+  if ((stats.lowMotivationMoments + stats.lowEmotionMoments >= 6 || stats.ignoredStateMoments >= 3) && highNegative) {
+    return "Состояние сотрудника часто игнорировалось: накапливались усталость и раздражение, решения становились менее эффективными.";
+  }
+
+  if (pressureRate < 0.26 && supportRate < 0.3 && devRate >= 0.12 && stats.contextMatches >= 4) {
+    return "Подход сбалансированный: вы адаптировались к контексту и сочетали поддержку, структуру и развитие.";
+  }
+
+  return "Стиль управления смешанный: были удачные решения, но часть действий не совпала с контекстом смены.";
+}
+
+function endShift() {
+  state.gameOver = true;
+  state.waitingForAction = false;
+
+  const totalActions = Object.values(stats.actions).reduce((sum, val) => sum + val, 0);
+  const summary = [
+    `Смена завершена. Обработано событий: ${state.eventsCount}.`,
+    `Негативных исходов решений: ${stats.negativeOutcomes}.`,
+    `Эпизоды низкой мотивации: ${stats.lowMotivationMoments}.`,
+    `Эпизоды низкого эмоционального фона: ${stats.lowEmotionMoments}.`,
+    `Точных попаданий в контекст: ${stats.contextMatches}.`,
+    getDominantStyle()
   ];
 
-  // 20 событий: по 5 на каждую категорию
-  const СОБЫТИЯ = [
-    { категория: "Клиенты", текст: "Клиент требует немедленного решения и повышает голос.", эффект: { emotion: -6, fatigue: 3 }, контекст: { срочность: 2, конфликт: 2, хаос: 1, обучение: 0 } },
-    { категория: "Клиенты", текст: "Очередь из возвратов растёт, люди нервничают.", эффект: { quality: -3, fatigue: 4, motivation: -2 }, контекст: { срочность: 2, конфликт: 1, хаос: 2, обучение: 0 } },
-    { категория: "Клиенты", текст: "Положительный отзыв от клиента, но ожидания на завтра выше.", эффект: { motivation: 3, fatigue: 1 }, контекст: { срочность: 1, конфликт: 0, хаос: 0, обучение: 1 } },
-    { категория: "Клиенты", текст: "VIP-заказ просит нестандартную обработку вне регламента.", эффект: { quality: -2, emotion: -3 }, контекст: { срочность: 2, конфликт: 1, хаос: 1, обучение: 0 } },
-    { категория: "Клиенты", текст: "В чате поддержки всплеск жалоб на скорость обслуживания.", эффект: { quality: -3, emotion: -3 }, контекст: { срочность: 2, конфликт: 1, хаос: 0, обучение: 1 } },
+  elements.message.textContent = summary.join(" ");
+  setStatus(`Итог: действий ${totalActions}, качество ${state.quality}, мотивация ${state.motivation}, эмоции ${state.emotion}.`);
+  updateUI();
+}
 
-    { категория: "Процессы", текст: "Новый регламент вступил в силу без полноценного брифинга.", эффект: { motivation: -3, quality: -3 }, контекст: { срочность: 1, конфликт: 0, хаос: 1, обучение: 2 } },
-    { категория: "Процессы", текст: "Сканер маркировки периодически зависает.", эффект: { quality: -4, fatigue: 5 }, контекст: { срочность: 1, конфликт: 0, хаос: 2, обучение: 0 } },
-    { категория: "Процессы", текст: "Аудит требует идеальные записи за последний час.", эффект: { emotion: -4, fatigue: 3, quality: -2 }, контекст: { срочность: 2, конфликт: 0, хаос: 1, обучение: 1 } },
-    { категория: "Процессы", текст: "Соседняя смена передала незакрытые задачи без комментариев.", эффект: { quality: -3, emotion: -2 }, контекст: { срочность: 1, конфликт: 1, хаос: 1, обучение: 0 } },
-    { категория: "Процессы", текст: "Есть идея улучшить сортировку, но требуется обучение в процессе.", эффект: { motivation: 2, quality: 1 }, контекст: { срочность: 0, конфликт: 0, хаос: 1, обучение: 2 } },
+window.handleAction = handleAction;
 
-    { категория: "Внутреннее состояние сотрудника", текст: "Сотрудник устал и дольше принимает решения.", эффект: { fatigue: 7, emotion: -4 }, контекст: { срочность: 0, конфликт: 0, хаос: 0, обучение: 1 } },
-    { категория: "Внутреннее состояние сотрудника", текст: "После ошибки сотрудник боится брать инициативу.", эффект: { motivation: -7, emotion: -3 }, контекст: { срочность: 0, конфликт: 0, хаос: 0, обучение: 2 } },
-    { категория: "Внутреннее состояние сотрудника", текст: "Реакция на обратную связь становится слишком резкой.", эффект: { emotion: -7, burnoutRisk: 4 }, контекст: { срочность: 0, конфликт: 2, хаос: 0, обучение: 1 } },
-    { категория: "Внутреннее состояние сотрудника", текст: "Сотрудник жалуется на однообразие задач.", эффект: { motivation: -6, emotion: -2 }, контекст: { срочность: 0, конфликт: 0, хаос: 0, обучение: 2 } },
-    { категория: "Внутреннее состояние сотрудника", текст: "Просит больше автономии в принятии решений.", эффект: { motivation: -4, emotion: -2 }, контекст: { срочность: 0, конфликт: 1, хаос: 0, обучение: 1 } },
-
-    { категория: "Коллектив", текст: "Один из коллег выбыл, нагрузка распределилась на смену.", эффект: { fatigue: 6, emotion: -4, quality: -2 }, контекст: { срочность: 1, конфликт: 0, хаос: 1, обучение: 0 } },
-    { категория: "Коллектив", текст: "В команде спор из-за распределения сложных кейсов.", эффект: { emotion: -6, motivation: -3 }, контекст: { срочность: 0, конфликт: 2, хаос: 0, обучение: 0 } },
-    { категория: "Коллектив", текст: "Стажёр требует частых подсказок, замедляя поток.", эффект: { fatigue: 4, quality: -3 }, контекст: { срочность: 1, конфликт: 0, хаос: 1, обучение: 2 } },
-    { категория: "Коллектив", текст: "Команда просит яснее обозначить приоритеты смены.", эффект: { quality: -2, motivation: -2 }, контекст: { срочность: 0, конфликт: 1, хаос: 1, обучение: 1 } },
-    { категория: "Коллектив", текст: "Опытный сотрудник готов подстраховать, если согласовать роли.", эффект: { quality: 2, emotion: 2 }, контекст: { срочность: 0, конфликт: 0, хаос: 0, обучение: 1 } }
-  ];
-
-  const состояние = {
-    ход: 0,
-    максимумХодов: НАСТРОЙКИ.ходовВСмене,
-    motivation: 60,
-    emotion: 58,
-    quality: 60,
-    fatigue: 24,
-    burnoutRisk: 10,
-    обучениеБонус: 0,
-    стабильностьБонус: 0,
-    перегревШтраф: 0,
-    критСерия: { motivation: 0, emotion: 0 },
-    критическиеСостояния: 0,
-    поддерживающие: 0,
-    директивные: 0,
-    история: [],
-    текущееСобытие: null,
-    завершено: false,
-    очередьСобытий: [],
-    последниеДействия: []
-  };
-
-  const $ = (id) => document.getElementById(id);
-
-  function ui() {
-    return {
-      motivation: $("motivation"), emotion: $("emotion"), quality: $("quality"), fatigue: $("fatigue"),
-      motivationBar: $("motivationBar"), emotionBar: $("emotionBar"), qualityBar: $("qualityBar"), fatigueBar: $("fatigueBar"),
-      message: $("message"), status: $("status"), sprite: $("characterSprite"), actions: document.querySelector(".actions")
-    };
-  }
-
-  function ограничить(v) { return Math.max(0, Math.min(100, Math.round(v))); }
-
-  function перемешать(arr) {
-    const copy = [...arr];
-    for (let i = copy.length - 1; i > 0; i -= 1) {
-      const j = Math.floor(Math.random() * (i + 1));
-      [copy[i], copy[j]] = [copy[j], copy[i]];
-    }
-    return copy;
-  }
-
-  function подготовитьОчередьСобытий() {
-    состояние.очередьСобытий = перемешать(СОБЫТИЯ);
-  }
-
-  function взятьСобытие() {
-    if (состояние.очередьСобытий.length === 0) подготовитьОчередьСобытий();
-    return состояние.очередьСобытий.shift();
-  }
-
-  function применитьЭффект(эффект) {
-    Object.entries(эффект).forEach(([k, v]) => {
-      if (typeof состояние[k] === "number") состояние[k] += v;
-    });
-  }
-
-  function модификаторКонтекста(actionId, контекст) {
-    let value = 0;
-    if (actionId === "speedUpPace") value = контекст.срочность * 2 - контекст.конфликт;
-    else if (actionId === "trainAndExplain") value = контекст.обучение * 3 - контекст.срочность * 2;
-    else if (actionId === "personalTalk") value = контекст.конфликт * 2 - контекст.срочность;
-    else if (actionId === "redistributeLoad") value = контекст.хаос * 2 - контекст.срочность;
-    else if (actionId === "correctiveFeedback") value = контекст.срочность + (контекст.хаос > 1 ? 1 : 0) - контекст.конфликт;
-    else if (actionId === "praiseEmployee") value = контекст.конфликт + контекст.обучение - контекст.срочность;
-
-    const повторов = состояние.последниеДействия.filter((id) => id === actionId).length;
-    return value - повторов;
-  }
-
-  function пересчитатьКачество(коррекция = 0, контекст = { срочность: 0, хаос: 0 }) {
-    const база = 0.56 * состояние.motivation + 0.44 * состояние.emotion;
-    const штрафУсталости = Math.max(0, состояние.fatigue - 50) * 0.5;
-    const штрафВыгорания = состояние.burnoutRisk * 0.24;
-    const бонус = состояние.обучениеБонус * 0.9 + состояние.стабильностьБонус * 0.8;
-    const штраф = состояние.перегревШтраф * 0.9 + контекст.хаос * 1.2 + контекст.срочность * 0.7;
-    состояние.quality = ограничить(база - штрафУсталости - штрафВыгорания + бонус - штраф + коррекция);
-  }
-
-  function обновитьКритичность() {
-    состояние.критСерия.motivation = состояние.motivation <= НАСТРОЙКИ.критПорог ? состояние.критСерия.motivation + 1 : 0;
-    состояние.критСерия.emotion = состояние.emotion <= НАСТРОЙКИ.критПорог ? состояние.критСерия.emotion + 1 : 0;
-
-    const крит = состояние.motivation <= НАСТРОЙКИ.критПорог || состояние.emotion <= НАСТРОЙКИ.критПорог || состояние.fatigue >= НАСТРОЙКИ.порогУсталости;
-    if (крит) состояние.критическиеСостояния += 1;
-
-    if (состояние.критСерия.motivation >= 2 || состояние.критСерия.emotion >= 2) {
-      состояние.burnoutRisk += 5;
-      состояние.перегревШтраф += 1;
-    }
-  }
-
-  function нормализовать() {
-    ["motivation", "emotion", "quality", "fatigue", "burnoutRisk", "обучениеБонус", "стабильностьБонус", "перегревШтраф"].forEach((k) => {
-      состояние[k] = ограничить(состояние[k]);
-    });
-  }
-
-  function ключСпрайта() {
-    if (состояние.fatigue >= 80 || состояние.burnoutRisk >= 70) return "tired";
-    if (состояние.emotion <= 18 || состояние.motivation <= 18) return "angry";
-    if (состояние.emotion <= 35 || состояние.motivation <= 35 || состояние.fatigue >= 62) return "stressed";
-    if (состояние.motivation >= 72 && состояние.emotion >= 72 && состояние.fatigue < 45) return "happy";
-    return "neutral";
-  }
-
-  function обновитьСпрайт(э) {
-    if (!э.sprite) return;
-    const fallbackSvg = "data:image/svg+xml;utf8," + encodeURIComponent("<svg xmlns='http://www.w3.org/2000/svg' width='220' height='220'><rect width='100%' height='100%' fill='#f7f7f7'/><text x='50%' y='50%' dominant-baseline='middle' text-anchor='middle' fill='#444' font-size='16' font-family='sans-serif'>Персонаж</text></svg>");
-    э.sprite.onerror = () => {
-      э.sprite.onerror = null;
-      э.sprite.src = fallbackSvg;
-    };
-    э.sprite.src = СПРАЙТЫ[ключСпрайта()];
-  }
-
-  function отрисовать(э) {
-    if (э.motivation) э.motivation.textContent = состояние.motivation;
-    if (э.emotion) э.emotion.textContent = состояние.emotion;
-    if (э.quality) э.quality.textContent = состояние.quality;
-    if (э.fatigue) э.fatigue.textContent = состояние.fatigue;
-
-    if (э.motivationBar) э.motivationBar.value = состояние.motivation;
-    if (э.emotionBar) э.emotionBar.value = состояние.emotion;
-    if (э.qualityBar) э.qualityBar.value = состояние.quality;
-    if (э.fatigueBar) э.fatigueBar.value = состояние.fatigue;
-
-    обновитьСпрайт(э);
-  }
-
-  function определитьСтиль() {
-    const всего = состояние.поддерживающие + состояние.директивные;
-    const доляДирективных = всего ? состояние.директивные / всего : 0;
-
-    if (состояние.поддерживающие >= состояние.директивные + 3 && состояние.критическиеСостояния <= 2) return "Наставник";
-    if (доляДирективных >= 0.72 && состояние.критическиеСостояния >= 3) return "Микроменеджер";
-    if (доляДирективных >= 0.62 && состояние.quality >= 65) return "Контролёр";
-    if (состояние.критическиеСостояния >= 5) return "Пожарный";
-    return "Популист";
-  }
-
-  function персональнаяСвязь(стиль) {
-    const карта = {
-      Наставник: "Вы строите устойчивость сотрудника и поддерживаете мотивацию в сложных ситуациях. Сильная сторона — профилактика выгорания. Добавьте больше точечной директивности в процессных кризисах.",
-      Контролёр: "Вы качественно держите стандарт и быстро стабилизируете результат. Сильная сторона — управляемость качества. Рекомендуется чаще разбавлять контроль поддерживающими действиями.",
-      Пожарный: "Вы эффективно тушите острые проблемы по мере появления. Сильная сторона — быстрая реакция. Для роста результата усиливайте превентивные решения заранее.",
-      Микроменеджер: "Вы активно управляете через давление на темп и контроль. Сильная сторона — краткосрочная отдача. Риск — ускоренный рост усталости и эмоционального истощения.",
-      Популист: "Вы поддерживаете комфорт и коммуникацию в команде. Сильная сторона — снижение конфликтности. Для стабильного качества добавьте больше структурных управленческих вмешательств."
-    };
-    return карта[стиль];
-  }
-
-  function завершитьСмену(э) {
-    состояние.завершено = true;
-    const стиль = определитьСтиль();
-
-    if (э.message) {
-      э.message.innerHTML = [
-        "<strong>Итог смены</strong>",
-        `Поддерживающих действий: ${состояние.поддерживающие}.`,
-        `Директивных действий: ${состояние.директивные}.`,
-        `Критических состояний сотрудника: ${состояние.критическиеСостояния}.`,
-        `Ваш управленческий стиль: ${стиль}.`,
-        "",
-        `<strong>Персональная обратная связь:</strong> ${персональнаяСвязь(стиль)}`
-      ].join("<br>");
-    }
-
-    if (э.status) э.status.textContent = "Смена завершена. Нажмите, чтобы начать новую смену.";
-    if (э.actions) э.actions.innerHTML = '<button type="button" onclick="window.location.reload()">Начать новую смену</button>';
-  }
-
-  function следующийХод(э) {
-    состояние.текущееСобытие = взятьСобытие();
-    применитьЭффект(состояние.текущееСобытие.эффект);
-    пересчитатьКачество(0, состояние.текущееСобытие.контекст);
-    нормализовать();
-    отрисовать(э);
-
-    if (э.message) э.message.innerHTML = `<strong>${состояние.текущееСобытие.категория}.</strong> ${состояние.текущееСобытие.текст}`;
-    if (э.status) э.status.textContent = `Ход ${состояние.ход + 1} из ${состояние.максимумХодов}. Выберите управленческое действие.`;
-  }
-
-  function применитьДействие(э, действие) {
-    if (состояние.завершено) return;
-
-    применитьЭффект(действие.эффект);
-    if (действие.id === "trainAndExplain") состояние.обучениеБонус += 3;
-    if (действие.id === "personalTalk" || действие.id === "redistributeLoad") состояние.стабильностьБонус += 2;
-    if (действие.id === "speedUpPace") состояние.перегревШтраф += 2;
-    if (действие.id === "correctiveFeedback") состояние.перегревШтраф += 1;
-
-    if (действие.тип === "поддерживающее") состояние.поддерживающие += 1;
-    else состояние.директивные += 1;
-
-    const контекст = состояние.текущееСобытие?.контекст || { срочность: 0, конфликт: 0, хаос: 0, обучение: 0 };
-    const коррекция = действие.базаКачества + модификаторКонтекста(действие.id, контекст);
-
-    обновитьКритичность();
-    пересчитатьКачество(коррекция, контекст);
-
-    состояние.последниеДействия.push(действие.id);
-    if (состояние.последниеДействия.length > 3) состояние.последниеДействия.shift();
-
-    состояние.стабильностьБонус = Math.max(0, состояние.стабильностьБонус - 0.15);
-    состояние.перегревШтраф = Math.max(0, состояние.перегревШтраф - 0.05);
-
-    нормализовать();
-    отрисовать(э);
-
-    состояние.ход += 1;
-    if (состояние.ход >= состояние.максимумХодов) {
-      завершитьСмену(э);
-    } else {
-      следующийХод(э);
-    }
-  }
-
-  function создатьКнопки(э) {
-    if (!э.actions) return;
-    э.actions.innerHTML = "";
-
-    ДЕЙСТВИЯ.forEach((д) => {
-      const кнопка = document.createElement("button");
-      кнопка.type = "button";
-      кнопка.textContent = д.label;
-      кнопка.addEventListener("click", () => применитьДействие(э, д));
-      э.actions.appendChild(кнопка);
-    });
-  }
-
-  function init() {
-    if (window.__TAMAGOCHI_READY__) return;
-
-    const э = ui();
-    if (!э.actions || !э.sprite || !э.message) return;
-
-    window.__TAMAGOCHI_READY__ = true;
-    подготовитьОчередьСобытий();
-    создатьКнопки(э);
-    пересчитатьКачество();
-    нормализовать();
-    отрисовать(э);
-    следующийХод(э);
-  }
-
-  window.ТамагочиИнициализация = init;
-
-  if (document.readyState === "loading") {
-    document.addEventListener("DOMContentLoaded", init);
-  } else {
-    init();
-  }
-})();
+updateUI();
+setStatus("Игра началась");
+triggerEvent();
