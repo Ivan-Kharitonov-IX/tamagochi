@@ -1,24 +1,3 @@
-let scorm = null;
-
-function initSCORM() {
-  if (window.API) {
-    scorm = window.API;
-    scorm.LMSInitialize("");
-  }
-}
-
-function sendScore(score) {
-  if (scorm) {
-    scorm.LMSSetValue("cmi.core.score.raw", score);
-    scorm.LMSCommit("");
-  }
-}
-
-function finishSCORM() {
-  if (scorm) {
-    scorm.LMSFinish("");
-  }
-}
 const state = {
   motivation: 60,
   emotion: 60,
@@ -26,7 +5,7 @@ const state = {
   currentEvent: null,
   waitingForAction: false,
   eventsCount: 0,
-  maxEvents: 18,
+  maxEvents: 21,
   gameOver: false
 };
 
@@ -42,22 +21,22 @@ const actions = {
   support: {
     id: "support",
     label: "Поддержать сотрудника",
-    base: { motivation: 10, emotion: 12, quality: -4 }
+    base: { motivation: 10, emotion: 12, quality: -5 }
   },
   clarify: {
     id: "clarify",
     label: "Прояснить задачу",
-    base: { motivation: -2, emotion: -3, quality: 10 }
+    base: { motivation: -3, emotion: -2, quality: 10 }
   },
   feedback: {
     id: "feedback",
-    label: "Дать обратную связь",
-    base: { motivation: -3, emotion: -4, quality: 11 }
+    label: "Дать корректирующую обратную связь",
+    base: { motivation: -4, emotion: -5, quality: 12 }
   },
   redistribute: {
     id: "redistribute",
     label: "Перераспределить нагрузку",
-    base: { motivation: 5, emotion: 6, quality: -6 }
+    base: { motivation: 6, emotion: 7, quality: -4 }
   },
   pressure: {
     id: "pressure",
@@ -67,7 +46,7 @@ const actions = {
   develop: {
     id: "develop",
     label: "Развивать сотрудника",
-    base: { motivation: 9, emotion: 3, quality: 7 }
+    base: { motivation: 8, emotion: 2, quality: 6 }
   }
 };
 
@@ -89,94 +68,109 @@ const stats = {
 
 const events = [
   {
-    text: "Сотрдник ведёт две очереди одновременно и начинает путаться в заказах.",
+    text: "Резкий рост задач",
     category: "нагрузка",
-    sensitivity: { support: 1.1, clarify: 1.2, feedback: 0.8, redistribute: 1.6, pressure: -0.6, develop: 0.7 }
+    sensitivity: { support: 1.5, clarify: 1.0, feedback: 0.9, redistribute: 1.8, pressure: -0.9, develop: 1.0 }
   },
   {
-    text: "В конце часа резко вырос поток клиентов, темп выдачи упал.",
+    text: "Несколько задач одновреенно",
     category: "нагрузка",
-    sensitivity: { support: 0.8, clarify: 1.1, feedback: 0.9, redistribute: 1.7, pressure: 0.7, develop: 0.6 }
+    sensitivity: { support: 1.0, clarify: 1.8, feedback: 0.9, redistribute: 1.1, pressure: -0.9, develop: 1.0 }
   },
   {
-    text: "Сотрудник просит помощь: не успевает и жалуется на усталость.",
+    text: "Нагрузка распределена неравномерно",
     category: "нагрузка",
-    sensitivity: { support: 1.7, clarify: 0.9, feedback: 0.7, redistribute: 1.5, pressure: -0.8, develop: 0.6 }
+    sensitivity: { support: 0.9, clarify: 1.1, feedback: 0.9, redistribute: 1.8, pressure: -0.9, develop: 1.0 }
   },
   {
-    text: "Новая инструкция по возвратам написана неясно, сотрудники трактуют её по-разному.",
+    text: "Требуется ускорение выполнения",
+    category: "нагрузка",
+    sensitivity: { support: -0.8, clarify: 1.0, feedback: 1.0, redistribute: 1.1, pressure: 1.5, develop: 0.9 }
+  },
+  {
+    text: "Новый процесс без объяснений",
     category: "процессы",
-    sensitivity: { support: 0.7, clarify: 1.8, feedback: 1.2, redistribute: 0.6, pressure: 0.5, develop: 1.1 }
+    sensitivity: { support: 1.0, clarify: 1.7, feedback: 1.0, redistribute: 0.9, pressure: -0.9, develop: 1.7 }
   },
   {
-    text: "Система маркировки обновилась, в команде пошли ошибки сканирования.",
+    text: "Противоречивые инструкции",
     category: "процессы",
-    sensitivity: { support: 0.6, clarify: 1.6, feedback: 1.3, redistribute: 0.7, pressure: 0.8, develop: 1.4 }
+    sensitivity: { support: 1.0, clarify: 1.8, feedback: -0.8, redistribute: 0.9, pressure: 1.0, develop: 1.0 }
   },
   {
-    text: "Сотрудник выполняет задачи механически и не замечает повторяющиеся ошибки.",
+    text: "Ошибка в процессе влияет на результат",
     category: "процессы",
-    sensitivity: { support: 0.9, clarify: 1.1, feedback: 1.7, redistribute: 0.6, pressure: 0.9, develop: 1.2 }
+    sensitivity: { support: -0.8, clarify: 1.0, feedback: 1.7, redistribute: 1.0, pressure: 0.9, develop: 1.6 }
   },
   {
-    text: "После жёсткого разговора с клиентом сотрудник стал раздражительным.",
+    text: "Нужно быстро адаптироваться к изменениям",
+    category: "процессы",
+    sensitivity: { support: 1.6, clarify: 1.1, feedback: 1.0, redistribute: 0.9, pressure: -0.9, develop: 1.7 }
+  },
+  {
+    text: "Потеря уверенности после ошибки",
     category: "состояние",
-    sensitivity: { support: 1.8, clarify: 0.8, feedback: 0.9, redistribute: 1.1, pressure: -0.9, develop: 0.8 }
+    sensitivity: { support: 1.9, clarify: 1.0, feedback: -0.9, redistribute: 1.1, pressure: 0.9, develop: 1.2 }
   },
   {
-    text: "Сотрудник работает стабильно, но заметно эмоционально выгорел.",
+    text: "Растёт раздражительность",
     category: "состояние",
-    sensitivity: { support: 1.6, clarify: 0.9, feedback: 1.1, redistribute: 1.0, pressure: -0.8, develop: 1.3 }
+    sensitivity: { support: 1.8, clarify: 1.0, feedback: 0.9, redistribute: 1.1, pressure: -0.9, develop: 1.0 }
   },
   {
-    text: "Сотрудник сомневается в себе после двух мелких ошибок подряд.",
+    text: "Падает вовлечённость",
     category: "состояние",
-    sensitivity: { support: 1.7, clarify: 1.0, feedback: 1.2, redistribute: 0.9, pressure: -0.7, develop: 1.1 }
+    sensitivity: { support: 1.1, clarify: 1.0, feedback: 1.0, redistribute: 0.9, pressure: -0.9, develop: 1.8 }
   },
   {
-    text: "Опытный сотрудник конфликтует с новичком из-за распределения задач.",
+    text: "Избегает сложных задач",
+    category: "состояние",
+    sensitivity: { support: 1.0, clarify: 1.0, feedback: 1.0, redistribute: 0.9, pressure: -0.9, develop: 1.8 }
+  },
+  {
+    text: "Конфликт в команде",
     category: "команда",
-    sensitivity: { support: 1.2, clarify: 1.4, feedback: 1.1, redistribute: 1.3, pressure: 0.6, develop: 1.0 }
+    sensitivity: { support: 1.7, clarify: 1.7, feedback: 1.0, redistribute: 1.0, pressure: -0.9, develop: 1.0 }
   },
   {
-    text: "Команда жалуется на неравномерные смены и несправедливую нагрузку.",
+    text: "Неравномерная ответственность",
     category: "команда",
-    sensitivity: { support: 1.0, clarify: 1.1, feedback: 0.9, redistribute: 1.8, pressure: -0.5, develop: 0.8 }
+    sensitivity: { support: -0.8, clarify: 1.1, feedback: 1.8, redistribute: 1.2, pressure: 1.0, develop: 1.0 }
   },
   {
-    text: "Новичок тянется за сильным сотрудником и копирует его ошибки.",
+    text: "Сильный сотрудник перегружен",
     category: "команда",
-    sensitivity: { support: 1.0, clarify: 1.2, feedback: 1.4, redistribute: 0.8, pressure: 0.7, develop: 1.7 }
+    sensitivity: { support: 1.2, clarify: 1.0, feedback: 0.9, redistribute: 1.9, pressure: -0.9, develop: 1.0 }
   },
   {
-    text: "Ключевой сотрудник просит ранний уход, но вечерняя смена уже недоукомплектована.",
+    text: "Новичок замедляет процесс",
+    category: "команда",
+    sensitivity: { support: 1.0, clarify: 1.1, feedback: 1.0, redistribute: 0.9, pressure: -0.9, develop: 1.8 }
+  },
+  {
+    text: "Нужно выбрать: скорость или качество",
     category: "дилеммы",
-    sensitivity: { support: 1.1, clarify: 1.2, feedback: 0.8, redistribute: 1.5, pressure: 1.0, develop: 0.7 }
+    sensitivity: { support: -0.8, clarify: 1.6, feedback: 1.1, redistribute: 1.0, pressure: 1.6, develop: 0.9 }
   },
   {
-    text: "Клиент требует исключение из правила, и сотрудник ждёт вашего решения.",
+    text: "Сотрудник делает медленно, но без ошибок",
     category: "дилеммы",
-    sensitivity: { support: 0.7, clarify: 1.7, feedback: 1.1, redistribute: 0.6, pressure: 0.9, develop: 1.0 }
+    sensitivity: { support: 1.7, clarify: 1.0, feedback: 0.9, redistribute: 1.0, pressure: -0.9, develop: 1.6 }
   },
   {
-    text: "Сотрудник просит обучение, но на смене нет запаса по времени.",
+    text: "Сотрудник делает быстро, но с ошибками",
     category: "дилеммы",
-    sensitivity: { support: 1.0, clarify: 0.8, feedback: 1.0, redistribute: 0.7, pressure: 0.6, develop: 1.9 }
+    sensitivity: { support: -0.8, clarify: 1.7, feedback: 1.7, redistribute: 1.0, pressure: 1.0, develop: 1.0 }
   },
   {
-    text: "По KPI сегодня просадка, а сотрудник и так работает на пределе.",
+    text: "Есть шанс улучшить процесс, но это замедлит работу",
     category: "дилеммы",
-    sensitivity: { support: 1.2, clarify: 1.0, feedback: 1.1, redistribute: 1.1, pressure: -0.7, develop: 0.9 }
+    sensitivity: { support: 1.1, clarify: 1.0, feedback: 1.1, redistribute: 0.9, pressure: -0.9, develop: 1.8 }
   },
   {
-    text: "Сотрудник выполняет норму, но инициативы и роста не видно.",
-    category: "процессы",
-    sensitivity: { support: 0.9, clarify: 1.0, feedback: 1.3, redistribute: 0.7, pressure: 0.8, develop: 1.8 }
-  },
-  {
-    text: "После сложной недели команда эмоционально просела, но план нужно закрыть.",
-    category: "состояние",
-    sensitivity: { support: 1.5, clarify: 0.9, feedback: 1.0, redistribute: 1.2, pressure: -0.6, develop: 1.1 }
+    text: "Нужно делегировать задачу с риском ошибки",
+    category: "дилеммы",
+    sensitivity: { support: 1.1, clarify: 1.0, feedback: 1.1, redistribute: 1.2, pressure: -0.9, develop: 1.8 }
   }
 ];
 
@@ -265,7 +259,7 @@ function scheduleNextEvent() {
 
 function applyActionWithContext(actionId, event) {
   const action = actions[actionId];
-  if (!action || !event) return { totalDelta: 0, contextMultiplier: 1 };
+  if (!action || !event) return { contextMultiplier: 1, resultDelta: { motivation: 0, emotion: 0, quality: 0 } };
 
   const multiplier = event.sensitivity[actionId] ?? 1;
   const resultDelta = { motivation: 0, emotion: 0, quality: 0 };
@@ -278,20 +272,15 @@ function applyActionWithContext(actionId, event) {
       contextualValue -= Math.sign(baseValue) * 2;
     }
 
-    resultDelta[metric] += contextualValue;
+    resultDelta[metric] = contextualValue;
     state[metric] += contextualValue;
   });
 
-  return {
-    totalDelta: resultDelta.motivation + resultDelta.emotion + resultDelta.quality,
-    contextMultiplier: multiplier,
-    resultDelta
-  };
+  return { contextMultiplier: multiplier, resultDelta };
 }
 
 function handleAction(actionId) {
   if (state.gameOver || !state.waitingForAction || !state.currentEvent) return;
-
   if (!actions[actionId]) return;
 
   stats.actions[actionId] += 1;
@@ -316,7 +305,7 @@ function handleAction(actionId) {
 
   if (net < 0) {
     stats.negativeOutcomes += 1;
-  } else if (outcome.contextMultiplier >= 1.2) {
+  } else if (outcome.contextMultiplier >= 1.5) {
     stats.contextMatches += 1;
   }
 
@@ -328,7 +317,7 @@ function handleAction(actionId) {
     stats.lowEmotionMoments += 1;
   }
 
-  if ((before.motivation < 40 || before.emotion < 40) && (actionId === "pressure" || actionId === "clarify")) {
+  if ((before.motivation < 40 || before.emotion < 40) && (actionId === "pressure" || actionId === "feedback")) {
     stats.ignoredStateMoments += 1;
   }
 
@@ -346,26 +335,22 @@ function getDominantStyle() {
   const totalActions = Object.values(stats.actions).reduce((sum, val) => sum + val, 0) || 1;
   const pressureRate = stats.actions.pressure / totalActions;
   const supportRate = stats.actions.support / totalActions;
-  const devRate = stats.actions.develop / totalActions;
-  const highNegative = stats.negativeOutcomes >= Math.ceil(state.maxEvents * 0.4);
+  const maxCount = Math.max(...Object.values(stats.actions));
+  const minCount = Math.min(...Object.values(stats.actions));
 
   if (pressureRate >= 0.3) {
-    return "Слишком часто использовали давление и контроль — качество местами росло, но эмоциональный фон просел.";
+    return "Слишком частый упор на контроль: качество иногда росло, но мотивация и эмоции заметно просели.";
   }
 
-  if (supportRate >= 0.35 && stats.actions.feedback + stats.actions.clarify < totalActions * 0.35) {
-    return "Сильный уклон в поддержку: атмосфера лучше, но управленческой жёсткости и структуры не хватило.";
+  if (supportRate >= 0.35) {
+    return "Сильный уклон в поддержку: эмоциональный фон стабилизировался, но часть процессов осталась без жёсткой коррекции.";
   }
 
-  if ((stats.lowMotivationMoments + stats.lowEmotionMoments >= 6 || stats.ignoredStateMoments >= 3) && highNegative) {
-    return "Состояние сотрудника часто игнорировалось: накапливались усталость и раздражение, решения становились менее эффективными.";
+  if (maxCount - minCount >= 6) {
+    return "Подход несбалансированный: часть инструментов почти не использовалась, из-за чего решения хуже попадали в контекст.";
   }
 
-  if (pressureRate < 0.26 && supportRate < 0.3 && devRate >= 0.12 && stats.contextMatches >= 4) {
-    return "Подход сбалансированный: вы адаптировались к контексту и сочетали поддержку, структуру и развитие.";
-  }
-
-  return "Стиль управления смешанный: были удачные решения, но часть действий не совпала с контекстом смены.";
+  return "Подход в целом сбалансирован: вы варьировали инструменты управления и адаптировались к контексту.";
 }
 
 function endShift() {
