@@ -1,46 +1,538 @@
-<!DOCTYPE html>
-<html lang="ru">
-<head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Manager Tamagotchi</title>
-  <link rel="stylesheet" href="style.css" />
-  <script src="script.js" defer></script>
-</head>
-<body>
-  <div class="app">
-    <h1>Сотрудник пункта выдачи</h1>
+const state = {
+  motivation: 60,
+  emotion: 60,
+  quality: 60,
+  currentEvent: null,
+  waitingForAction: false,
+  eventsCount: 0,
+  maxEvents: 21,
+  gameOver: false,
+  pendingEffects: [],
+  activeModifiers: [],
+  metricHistory: [],
+  repeatActionStreak: { id: null, count: 0 }
+};
 
-    <div class="character">
-      <img id="characterSprite" src="assets/neutral.png" alt="Персонаж" />
-    </div>
+const sprites = {
+  happy: "assets/happy.png",
+  neutral: "assets/neutral.png",
+  stressed: "assets/stressed.png",
+  angry: "assets/angry.png",
+  tired: "assets/tired.png"
+};
 
-    <div class="stats">
-      <div>🔥 Мотивация: <span id="motivation">0</span>
-        <progress id="motivationBar" value="0" max="100"></progress>
-      </div>
-      <div>😊 Эмоциональный фон: <span id="emotion">0</span>
-        <progress id="emotionBar" value="0" max="100"></progress>
-      </div>
-      <div>📊 Качество работы: <span id="quality">0</span>
-        <progress id="qualityBar" value="0" max="100"></progress>
-      </div>
-    </div>
+const actions = {
+  support: {
+    id: "support",
+    label: "Поддержать сотрудника",
+    base: { motivation: 10, emotion: 12, quality: -5 },
+    delayed: { motivation: 2, emotion: 2, quality: 0 },
+    delayTurns: 1
+  },
+  clarify: {
+    id: "clarify",
+    label: "Прояснить задачу",
+    base: { motivation: -3, emotion: -2, quality: 10 },
+    delayed: { motivation: 1, emotion: 1, quality: 2 },
+    delayTurns: 1
+  },
+  feedback: {
+    id: "feedback",
+    label: "Дать корректирующую обратную связь",
+    base: { motivation: -4, emotion: -5, quality: 12 },
+    delayed: { motivation: 2, emotion: 1, quality: 2 },
+    delayTurns: 1
+  },
+  redistribute: {
+    id: "redistribute",
+    label: "Перераспределить нагрузку",
+    base: { motivation: 6, emotion: 7, quality: -4 },
+    delayed: { motivation: 1, emotion: 1, quality: 2 },
+    delayTurns: 1
+  },
+  pressure: {
+    id: "pressure",
+    label: "Усилить контроль",
+    base: { motivation: -10, emotion: -11, quality: 14 },
+    delayed: { motivation: 2, emotion: 0, quality: 1 },
+    delayTurns: 2
+  },
+  develop: {
+    id: "develop",
+    label: "Развивать сотрудника",
+    base: { motivation: 8, emotion: 2, quality: 6 },
+    delayed: { motivation: 3, emotion: 2, quality: 3 },
+    delayTurns: 2
+  }
+};
 
-    <div class="actions">
-      <button type="button" onclick="handleAction('support')">Поддержать сотрудника</button>
-      <button type="button" onclick="handleAction('clarify')">Прояснить задачу</button>
-      <button type="button" onclick="handleAction('feedback')">Дать корректирующую обратную связь</button>
-      <button type="button" onclick="handleAction('redistribute')">Перераспределить нагрузку</button>
-      <button type="button" onclick="handleAction('pressure')">Усилить контроль</button>
-      <button type="button" onclick="handleAction('develop')">Развивать сотрудника</button>
-    </div>
+const stats = {
+  actions: {
+    support: 0,
+    clarify: 0,
+    feedback: 0,
+    redistribute: 0,
+    pressure: 0,
+    develop: 0
+  },
+  negativeOutcomes: 0,
+  lowMotivationMoments: 0,
+  lowEmotionMoments: 0,
+  ignoredStateMoments: 0,
+  contextMatches: 0
+};
 
-    <div class="event">
-      <p id="message"></p>
-    </div>
+const events = [
+  {
+    text: "Резкий рост задач",
+    category: "нагрузка",
+    sensitivity: { support: 1.5, clarify: 1.0, feedback: 0.9, redistribute: 1.8, pressure: -0.9, develop: 1.0 },
+    persistent: { turns: 2, modifiers: { redistribute: 1.15, support: 1.1 } }
+  },
+  {
+    text: "Несколько задач одновременно",
+    category: "нагрузка",
+    sensitivity: { support: 1.0, clarify: 1.8, feedback: 0.9, redistribute: 1.1, pressure: -0.9, develop: 1.0 },
+    persistent: { turns: 2, modifiers: { clarify: 1.15, develop: 1.05 } }
+  },
+  {
+    text: "Нагрузка распределена неравномерно",
+    category: "нагрузка",
+    sensitivity: { support: 0.9, clarify: 1.1, feedback: 0.9, redistribute: 1.8, pressure: -0.9, develop: 1.0 },
+    persistent: { turns: 3, modifiers: { redistribute: 1.1 } }
+  },
+  {
+    text: "Требуется ускорение выполнения",
+    category: "нагрузка",
+    sensitivity: { support: -0.8, clarify: 1.0, feedback: 1.0, redistribute: 1.1, pressure: 1.5, develop: 0.9 },
+    persistent: { turns: 2, modifiers: { pressure: 1.08, clarify: 1.08 } }
+  },
+  {
+    text: "Новый процесс без объяснений",
+    category: "процессы",
+    sensitivity: { support: 1.0, clarify: 1.7, feedback: 1.0, redistribute: 0.9, pressure: -0.9, develop: 1.7 },
+    persistent: { turns: 3, modifiers: { develop: 1.12, clarify: 1.12 } }
+  },
+  {
+    text: "Противоречивые инструкции",
+    category: "процессы",
+    sensitivity: { support: 1.0, clarify: 1.8, feedback: -0.8, redistribute: 0.9, pressure: 1.0, develop: 1.0 },
+    persistent: { turns: 2, modifiers: { clarify: 1.12 } }
+  },
+  {
+    text: "Ошибка в процессе влияет на результат",
+    category: "процессы",
+    sensitivity: { support: -0.8, clarify: 1.0, feedback: 1.7, redistribute: 1.0, pressure: 0.9, develop: 1.6 },
+    persistent: { turns: 2, modifiers: { feedback: 1.12, develop: 1.1 } }
+  },
+  {
+    text: "Нужно быстро адаптироваться к изменениям",
+    category: "процессы",
+    sensitivity: { support: 1.6, clarify: 1.1, feedback: 1.0, redistribute: 0.9, pressure: -0.9, develop: 1.7 },
+    persistent: { turns: 3, modifiers: { develop: 1.12, support: 1.08 } }
+  },
+  {
+    text: "Потеря уверенности после ошибки",
+    category: "состояние",
+    sensitivity: { support: 1.9, clarify: 1.0, feedback: -0.9, redistribute: 1.1, pressure: 0.9, develop: 1.2 },
+    persistent: { turns: 2, modifiers: { support: 1.12, develop: 1.08 } }
+  },
+  {
+    text: "Растёт раздражительность",
+    category: "состояние",
+    sensitivity: { support: 1.8, clarify: 1.0, feedback: 0.9, redistribute: 1.1, pressure: -0.9, develop: 1.0 },
+    persistent: { turns: 2, modifiers: { support: 1.1, pressure: 0.92 } }
+  },
+  {
+    text: "Падает вовлечённость",
+    category: "состояние",
+    sensitivity: { support: 1.1, clarify: 1.0, feedback: 1.0, redistribute: 0.9, pressure: -0.9, develop: 1.8 },
+    persistent: { turns: 3, modifiers: { develop: 1.12 } }
+  },
+  {
+    text: "Избегает сложных задач",
+    category: "состояние",
+    sensitivity: { support: 1.0, clarify: 1.0, feedback: 1.0, redistribute: 0.9, pressure: -0.9, develop: 1.8 },
+    persistent: { turns: 3, modifiers: { develop: 1.12, clarify: 1.06 } }
+  },
+  {
+    text: "Конфликт в команде",
+    category: "команда",
+    sensitivity: { support: 1.7, clarify: 1.7, feedback: 1.0, redistribute: 1.0, pressure: -0.9, develop: 1.0 },
+    persistent: { turns: 2, modifiers: { support: 1.1, clarify: 1.1 } }
+  },
+  {
+    text: "Неравномерная ответственность",
+    category: "команда",
+    sensitivity: { support: -0.8, clarify: 1.1, feedback: 1.8, redistribute: 1.2, pressure: 1.0, develop: 1.0 },
+    persistent: { turns: 2, modifiers: { feedback: 1.12, redistribute: 1.06 } }
+  },
+  {
+    text: "Сильный сотрудник перегружен",
+    category: "команда",
+    sensitivity: { support: 1.2, clarify: 1.0, feedback: 0.9, redistribute: 1.9, pressure: -0.9, develop: 1.0 },
+    persistent: { turns: 3, modifiers: { redistribute: 1.12, support: 1.06 } }
+  },
+  {
+    text: "Новичок замедляет процесс",
+    category: "команда",
+    sensitivity: { support: 1.0, clarify: 1.1, feedback: 1.0, redistribute: 0.9, pressure: -0.9, develop: 1.8 },
+    persistent: { turns: 3, modifiers: { develop: 1.12 } }
+  },
+  {
+    text: "Нужно выбрать: скорость или качество",
+    category: "дилеммы",
+    sensitivity: { support: -0.8, clarify: 1.6, feedback: 1.1, redistribute: 1.0, pressure: 1.6, develop: 0.9 },
+    persistent: { turns: 2, modifiers: { clarify: 1.08, pressure: 1.08 } }
+  },
+  {
+    text: "Сотрудник делает медленно, но без ошибок",
+    category: "дилеммы",
+    sensitivity: { support: 1.7, clarify: 1.0, feedback: 0.9, redistribute: 1.0, pressure: -0.9, develop: 1.6 },
+    persistent: { turns: 2, modifiers: { support: 1.1, develop: 1.08 } }
+  },
+  {
+    text: "Сотрудник делает быстро, но с ошибками",
+    category: "дилеммы",
+    sensitivity: { support: -0.8, clarify: 1.7, feedback: 1.7, redistribute: 1.0, pressure: 1.0, develop: 1.0 },
+    persistent: { turns: 2, modifiers: { feedback: 1.12, clarify: 1.1 } }
+  },
+  {
+    text: "Есть шанс улучшить процесс, но это замедлит работу",
+    category: "дилеммы",
+    sensitivity: { support: 1.1, clarify: 1.0, feedback: 1.1, redistribute: 0.9, pressure: -0.9, develop: 1.8 },
+    persistent: { turns: 3, modifiers: { develop: 1.12 } }
+  },
+  {
+    text: "Нужно делегировать задачу с риском ошибки",
+    category: "дилеммы",
+    sensitivity: { support: 1.1, clarify: 1.0, feedback: 1.1, redistribute: 1.2, pressure: -0.9, develop: 1.8 },
+    persistent: { turns: 3, modifiers: { develop: 1.1, clarify: 1.06 } }
+  }
+];
 
-    <p id="status"></p>
-  </div>
-</body>
-</html>
+const elements = {
+  motivation: document.getElementById("motivation"),
+  emotion: document.getElementById("emotion"),
+  quality: document.getElementById("quality"),
+  motivationBar: document.getElementById("motivationBar"),
+  emotionBar: document.getElementById("emotionBar"),
+  qualityBar: document.getElementById("qualityBar"),
+  message: document.getElementById("message"),
+  status: document.getElementById("status"),
+  characterSprite: document.getElementById("characterSprite")
+};
+
+const clamp = (value) => Math.max(0, Math.min(100, value));
+
+function normalize() {
+  state.motivation = clamp(state.motivation);
+  state.emotion = clamp(state.emotion);
+  state.quality = clamp(state.quality);
+}
+
+function getCharacterState() {
+  if (state.motivation < 30) return "tired";
+  if (state.emotion < 30) return "angry";
+  if (state.emotion < 45) return "stressed";
+  if (state.motivation > 75 && state.emotion > 70) return "happy";
+  return "neutral";
+}
+
+function updateCharacterSprite() {
+  elements.characterSprite.src = sprites[getCharacterState()] || sprites.neutral;
+}
+
+function updateQuality() {
+  const delta = Math.floor((state.motivation + state.emotion) / 28 - 3);
+  state.quality += delta;
+  normalize();
+}
+
+function getRandomEvent() {
+  return events[Math.floor(Math.random() * events.length)];
+}
+
+function setStatus(text = "") {
+  elements.status.textContent = text;
+}
+
+function updateUI() {
+  elements.motivation.textContent = state.motivation;
+  elements.emotion.textContent = state.emotion;
+  elements.quality.textContent = state.quality;
+
+  elements.motivationBar.value = state.motivation;
+  elements.emotionBar.value = state.emotion;
+  elements.qualityBar.value = state.quality;
+
+  updateCharacterSprite();
+}
+
+function applyPendingEffects() {
+  if (state.pendingEffects.length === 0) return null;
+
+  const due = [];
+  state.pendingEffects.forEach((item) => {
+    item.turnsLeft -= 1;
+    if (item.turnsLeft <= 0) {
+      due.push(item.effect);
+    }
+  });
+
+  state.pendingEffects = state.pendingEffects.filter((item) => item.turnsLeft > 0);
+
+  if (due.length === 0) return null;
+
+  const total = { motivation: 0, emotion: 0, quality: 0 };
+  due.forEach((eff) => {
+    total.motivation += eff.motivation || 0;
+    total.emotion += eff.emotion || 0;
+    total.quality += eff.quality || 0;
+  });
+
+  state.motivation += total.motivation;
+  state.emotion += total.emotion;
+  state.quality += total.quality;
+  normalize();
+
+  return total;
+}
+
+function tickEventModifiers() {
+  state.activeModifiers = state.activeModifiers
+    .map((mod) => ({ ...mod, turnsLeft: mod.turnsLeft - 1 }))
+    .filter((mod) => mod.turnsLeft > 0);
+}
+
+function addEventModifier(event) {
+  if (!event.persistent) return;
+  state.activeModifiers.push({
+    turnsLeft: event.persistent.turns,
+    modifiers: event.persistent.modifiers,
+    source: event.text
+  });
+}
+
+function getActionDecayMultiplier(actionId) {
+  if (state.repeatActionStreak.id !== actionId) return 1;
+  const decaySteps = Math.max(0, state.repeatActionStreak.count - 1);
+  return Math.max(0.65, 1 - decaySteps * 0.1);
+}
+
+function getPersistentMultiplier(actionId) {
+  return state.activeModifiers.reduce((acc, mod) => acc * (mod.modifiers[actionId] || 1), 1);
+}
+
+function triggerEvent() {
+  if (state.gameOver) return;
+
+  if (state.eventsCount >= state.maxEvents) {
+    endShift();
+    return;
+  }
+
+  const delayedApplied = applyPendingEffects();
+  tickEventModifiers();
+
+  state.currentEvent = getRandomEvent();
+  addEventModifier(state.currentEvent);
+
+  state.waitingForAction = true;
+  state.eventsCount += 1;
+
+  const activeMods = state.activeModifiers.length > 0 ? ` | Активных контекстов: ${state.activeModifiers.length}` : "";
+  const delayedText = delayedApplied
+    ? ` | Отложенные эффекты: М ${delayedApplied.motivation >= 0 ? "+" : ""}${delayedApplied.motivation}, Э ${delayedApplied.emotion >= 0 ? "+" : ""}${delayedApplied.emotion}, К ${delayedApplied.quality >= 0 ? "+" : ""}${delayedApplied.quality}`
+    : "";
+
+  elements.message.textContent = `Событие (${state.currentEvent.category}): ${state.currentEvent.text}${activeMods}${delayedText}`;
+  setStatus(`Событие ${state.eventsCount} из ${state.maxEvents}`);
+
+  state.metricHistory.push({
+    motivation: state.motivation,
+    emotion: state.emotion,
+    quality: state.quality
+  });
+
+  updateUI();
+}
+
+function scheduleNextEvent() {
+  window.setTimeout(() => {
+    if (!state.gameOver) {
+      triggerEvent();
+    }
+  }, 2200);
+}
+
+function applyActionWithContext(actionId, event) {
+  const action = actions[actionId];
+  if (!action || !event) return { contextMultiplier: 1, resultDelta: { motivation: 0, emotion: 0, quality: 0 } };
+
+  const eventMultiplier = event.sensitivity[actionId] ?? 1;
+  const decayMultiplier = getActionDecayMultiplier(actionId);
+  const persistentMultiplier = getPersistentMultiplier(actionId);
+  const totalMultiplier = eventMultiplier * decayMultiplier * persistentMultiplier;
+
+  const resultDelta = { motivation: 0, emotion: 0, quality: 0 };
+
+  Object.keys(action.base).forEach((metric) => {
+    const baseValue = action.base[metric];
+    let contextualValue = Math.round(baseValue * totalMultiplier);
+
+    if (totalMultiplier < 0) {
+      contextualValue -= Math.sign(baseValue) * 2;
+    }
+
+    resultDelta[metric] = contextualValue;
+    state[metric] += contextualValue;
+  });
+
+  if (action.delayed) {
+    state.pendingEffects.push({
+      turnsLeft: action.delayTurns,
+      effect: { ...action.delayed }
+    });
+  }
+
+  return { contextMultiplier: eventMultiplier, totalMultiplier, resultDelta };
+}
+
+function handleAction(actionId) {
+  if (state.gameOver || !state.waitingForAction || !state.currentEvent) return;
+  if (!actions[actionId]) return;
+
+  stats.actions[actionId] += 1;
+
+  if (state.repeatActionStreak.id === actionId) {
+    state.repeatActionStreak.count += 1;
+  } else {
+    state.repeatActionStreak = { id: actionId, count: 1 };
+  }
+
+  const before = {
+    motivation: state.motivation,
+    emotion: state.emotion,
+    quality: state.quality
+  };
+
+  const outcome = applyActionWithContext(actionId, state.currentEvent);
+  normalize();
+  updateQuality();
+
+  const after = {
+    motivation: state.motivation,
+    emotion: state.emotion,
+    quality: state.quality
+  };
+
+  const net = (after.motivation - before.motivation) + (after.emotion - before.emotion) + (after.quality - before.quality);
+
+  if (net < 0) {
+    stats.negativeOutcomes += 1;
+  } else if (outcome.contextMultiplier >= 1.5 || outcome.totalMultiplier >= 1.5) {
+    stats.contextMatches += 1;
+  }
+
+  if (state.motivation < 35) {
+    stats.lowMotivationMoments += 1;
+  }
+
+  if (state.emotion < 35) {
+    stats.lowEmotionMoments += 1;
+  }
+
+  if ((before.motivation < 40 || before.emotion < 40) && (actionId === "pressure" || actionId === "feedback")) {
+    stats.ignoredStateMoments += 1;
+  }
+
+  const decayInfo = getActionDecayMultiplier(actionId);
+  const moodText = net >= 0 ? "Решение сработало в текущем контексте." : "Решение ухудшило ситуацию в текущем контексте.";
+  elements.message.textContent = `${moodText} (${actions[actionId].label}) | Эффективность действия: ${Math.round(decayInfo * 100)}%`;
+
+  updateUI();
+
+  state.currentEvent = null;
+  state.waitingForAction = false;
+  scheduleNextEvent();
+}
+
+function getStabilityScore() {
+  if (state.metricHistory.length < 2) return 100;
+
+  let totalSwing = 0;
+  for (let i = 1; i < state.metricHistory.length; i += 1) {
+    const prev = state.metricHistory[i - 1];
+    const curr = state.metricHistory[i];
+    totalSwing += Math.abs(curr.motivation - prev.motivation);
+    totalSwing += Math.abs(curr.emotion - prev.emotion);
+    totalSwing += Math.abs(curr.quality - prev.quality);
+  }
+
+  const avgSwing = totalSwing / ((state.metricHistory.length - 1) * 3);
+  return Math.round(clamp(100 - avgSwing * 2.2));
+}
+
+function getDiversityScore() {
+  const actionCounts = Object.values(stats.actions);
+  const used = actionCounts.filter((count) => count > 0).length;
+  const total = actionCounts.reduce((sum, v) => sum + v, 0);
+  if (total === 0) return 0;
+
+  const evennessPenalty = Math.max(...actionCounts) - Math.min(...actionCounts);
+  const baseScore = (used / actionCounts.length) * 100;
+  return Math.round(clamp(baseScore - evennessPenalty * 2));
+}
+
+function getDominantStyle() {
+  const totalActions = Object.values(stats.actions).reduce((sum, val) => sum + val, 0) || 1;
+  const pressureRate = stats.actions.pressure / totalActions;
+  const supportRate = stats.actions.support / totalActions;
+  const maxCount = Math.max(...Object.values(stats.actions));
+  const minCount = Math.min(...Object.values(stats.actions));
+
+  if (pressureRate >= 0.3) {
+    return "Слишком частый упор на контроль: качество иногда росло, но мотивация и эмоции заметно просели.";
+  }
+
+  if (supportRate >= 0.35) {
+    return "Сильный уклон в поддержку: эмоциональный фон стабилизировался, но часть процессов осталась без жёсткой коррекции.";
+  }
+
+  if (maxCount - minCount >= 6) {
+    return "Подход несбалансированный: часть инструментов почти не использовалась, из-за чего решения хуже попадали в контекст.";
+  }
+
+  return "Подход в целом сбалансирован: вы варьировали инструменты управления и адаптировались к контексту.";
+}
+
+function endShift() {
+  state.gameOver = true;
+  state.waitingForAction = false;
+
+  const totalActions = Object.values(stats.actions).reduce((sum, val) => sum + val, 0);
+  const stability = getStabilityScore();
+  const diversity = getDiversityScore();
+
+  const summary = [
+    `Смена завершена. Обработано событий: ${state.eventsCount}.`,
+    `Негативных исходов решений: ${stats.negativeOutcomes}.`,
+    `Эпизоды низкой мотивации: ${stats.lowMotivationMoments}.`,
+    `Эпизоды низкого эмоционального фона: ${stats.lowEmotionMoments}.`,
+    `Точных попаданий в контекст: ${stats.contextMatches}.`,
+    `Стабильность метрик: ${stability}/100.`,
+    `Разнообразие управленческих действий: ${diversity}/100.`,
+    getDominantStyle()
+  ];
+
+  elements.message.textContent = summary.join(" ");
+  setStatus(`Итог: действий ${totalActions}, качество ${state.quality}, мотивация ${state.motivation}, эмоции ${state.emotion}.`);
+  updateUI();
+}
+
+window.handleAction = handleAction;
+
+updateUI();
+setStatus("Игра началась");
+triggerEvent();
