@@ -1,3 +1,24 @@
+let scorm = null;
+
+function initSCORM() {
+  if (window.API) {
+    scorm = window.API;
+    scorm.LMSInitialize("");
+  }
+}
+
+function sendScore(score) {
+  if (scorm) {
+    scorm.LMSSetValue("cmi.core.score.raw", score);
+    scorm.LMSCommit("");
+  }
+}
+
+function finishSCORM() {
+  if (scorm) {
+    scorm.LMSFinish("");
+  }
+}
 const state = {
   motivation: 60,
   emotion: 60,
@@ -356,6 +377,9 @@ function getDominantStyle() {
 function endShift() {
   state.gameOver = true;
   state.waitingForAction = false;
+  const finalScore = state.quality;
+sendScore(finalScore);
+finishSCORM();
 
   const totalActions = Object.values(stats.actions).reduce((sum, val) => sum + val, 0);
   const summary = [
