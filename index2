@@ -1,0 +1,1247 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Lamoda — Диалоговый тренажёр ПВЗ</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@300;400;600&family=Jost:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #F7F5F2;
+    --surface: #FFFFFF;
+    --surface2: #F0EDE8;
+    --border: #E2DDD7;
+    --text-primary: #1A1A1A;
+    --text-secondary: #6B6560;
+    --text-muted: #A09890;
+    --accent: #1A1A1A;
+    --accent-soft: #2D2D2D;
+    --good: #3D7A5C;
+    --good-bg: #EBF4EF;
+    --bad: #B5412B;
+    --bad-bg: #FAECE9;
+    --neutral: #6B6560;
+    --mood-fill: #3D7A5C;
+    --shadow: 0 4px 24px rgba(0,0,0,0.07);
+    --shadow-hover: 0 8px 32px rgba(0,0,0,0.12);
+    --radius: 16px;
+    --radius-sm: 10px;
+  }
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: 'Jost', sans-serif;
+    background: var(--bg);
+    color: var(--text-primary);
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: flex-start;
+    padding: 0;
+    overflow-x: hidden;
+  }
+
+  /* ── SCREENS ── */
+  .screen { display: none; width: 100%; min-height: 100vh; flex-direction: column; align-items: center; }
+  .screen.active { display: flex; }
+
+  /* ── INTRO ── */
+  #intro {
+    background: var(--accent);
+    color: #fff;
+    justify-content: center;
+    padding: 40px 24px;
+    position: relative;
+    overflow: hidden;
+  }
+  #intro::before {
+    content: '';
+    position: absolute;
+    top: -120px; right: -100px;
+    width: 400px; height: 400px;
+    border-radius: 50%;
+    background: rgba(255,255,255,0.04);
+  }
+  #intro::after {
+    content: '';
+    position: absolute;
+    bottom: -80px; left: -60px;
+    width: 300px; height: 300px;
+    border-radius: 50%;
+    background: rgba(255,255,255,0.03);
+  }
+  .intro-inner {
+    max-width: 480px;
+    width: 100%;
+    text-align: center;
+    position: relative;
+    z-index: 1;
+    animation: fadeUp .7s ease both;
+  }
+  .brand-logo {
+    font-family: 'Cormorant Garamond', serif;
+    font-weight: 300;
+    font-size: 13px;
+    letter-spacing: 6px;
+    text-transform: uppercase;
+    opacity: .6;
+    margin-bottom: 48px;
+  }
+  .intro-title {
+    font-family: 'Cormorant Garamond', serif;
+    font-weight: 300;
+    font-size: clamp(32px, 8vw, 52px);
+    line-height: 1.1;
+    margin-bottom: 20px;
+  }
+  .intro-subtitle {
+    font-size: 14px;
+    font-weight: 300;
+    opacity: .65;
+    line-height: 1.6;
+    margin-bottom: 48px;
+    letter-spacing: .3px;
+  }
+  .btn-start {
+    display: inline-flex;
+    align-items: center;
+    gap: 12px;
+    background: #fff;
+    color: var(--accent);
+    border: none;
+    padding: 16px 36px;
+    border-radius: 50px;
+    font-family: 'Jost', sans-serif;
+    font-size: 14px;
+    font-weight: 500;
+    letter-spacing: .5px;
+    cursor: pointer;
+    transition: transform .2s, box-shadow .2s;
+  }
+  .btn-start:hover { transform: translateY(-2px); box-shadow: 0 8px 32px rgba(255,255,255,0.15); }
+  .btn-start svg { transition: transform .2s; }
+  .btn-start:hover svg { transform: translateX(4px); }
+  .intro-note {
+    margin-top: 32px;
+    font-size: 12px;
+    opacity: .35;
+    letter-spacing: .3px;
+  }
+
+  /* ── SELECTOR ── */
+  #selector {
+    background: var(--bg);
+    padding: 40px 20px 60px;
+    justify-content: flex-start;
+  }
+  .selector-header {
+    width: 100%;
+    max-width: 560px;
+    margin-bottom: 32px;
+    animation: fadeUp .5s ease both;
+  }
+  .back-btn {
+    display: inline-flex; align-items: center; gap: 8px;
+    font-size: 12px; color: var(--text-muted); letter-spacing: .5px;
+    background: none; border: none; cursor: pointer;
+    font-family: 'Jost', sans-serif;
+    padding: 0; margin-bottom: 24px;
+    transition: color .2s;
+  }
+  .back-btn:hover { color: var(--text-primary); }
+  .selector-title {
+    font-family: 'Cormorant Garamond', serif;
+    font-size: 30px; font-weight: 300;
+    line-height: 1.2;
+    margin-bottom: 6px;
+  }
+  .selector-sub { font-size: 13px; color: var(--text-muted); font-weight: 300; }
+  .scenario-grid {
+    width: 100%; max-width: 560px;
+    display: flex; flex-direction: column; gap: 12px;
+  }
+  .scenario-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 20px 22px;
+    cursor: pointer;
+    display: flex; align-items: center; gap: 16px;
+    transition: border-color .2s, box-shadow .2s, transform .15s;
+    animation: fadeUp .5s ease both;
+  }
+  .scenario-card:hover { border-color: var(--accent); box-shadow: var(--shadow); transform: translateY(-2px); }
+  .sc-icon {
+    width: 44px; height: 44px; border-radius: 12px;
+    background: var(--surface2);
+    display: flex; align-items: center; justify-content: center;
+    flex-shrink: 0; font-size: 20px;
+  }
+  .sc-info { flex: 1; }
+  .sc-title { font-size: 14px; font-weight: 500; margin-bottom: 3px; }
+  .sc-desc { font-size: 12px; color: var(--text-muted); line-height: 1.5; }
+  .sc-diff {
+    font-size: 11px; font-weight: 500; letter-spacing: .5px;
+    padding: 4px 10px; border-radius: 20px;
+    flex-shrink: 0;
+  }
+  .diff-easy { background: #EBF4EF; color: var(--good); }
+  .diff-med { background: #FEF3E8; color: #B57A2B; }
+  .diff-hard { background: var(--bad-bg); color: var(--bad); }
+
+  /* ── GAME ── */
+  #game {
+    background: var(--bg);
+    padding: 0;
+    justify-content: flex-start;
+    align-items: stretch;
+  }
+  .game-header {
+    background: var(--surface);
+    border-bottom: 1px solid var(--border);
+    padding: 14px 20px;
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    position: sticky; top: 0; z-index: 10;
+  }
+  .game-title-sm {
+    flex: 1;
+    font-size: 13px; font-weight: 500;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  }
+  .progress-wrap { display: flex; align-items: center; gap: 10px; }
+  .progress-label { font-size: 11px; color: var(--text-muted); white-space: nowrap; }
+
+  /* Mood bar */
+  .mood-section {
+    background: var(--surface);
+    border-bottom: 1px solid var(--border);
+    padding: 12px 20px;
+    display: flex; align-items: center; gap: 12px;
+  }
+  .mood-icon { font-size: 22px; transition: all .4s; flex-shrink: 0; }
+  .mood-bar-wrap { flex: 1; }
+  .mood-bar-label { font-size: 11px; color: var(--text-muted); margin-bottom: 5px; display: flex; justify-content: space-between; }
+  .mood-bar-track { height: 6px; background: var(--surface2); border-radius: 10px; overflow: hidden; }
+  .mood-bar-fill { height: 100%; border-radius: 10px; transition: width .6s cubic-bezier(.4,0,.2,1), background-color .6s; }
+  .mood-score { font-size: 14px; font-weight: 500; min-width: 28px; text-align: right; }
+
+  /* Scene */
+  .scene-wrap { padding: 20px; max-width: 640px; margin: 0 auto; width: 100%; }
+  
+  /* Scenario step indicator */
+  .step-indicator {
+    display: flex; gap: 6px; margin-bottom: 20px;
+  }
+  .step-dot {
+    height: 3px; flex: 1; border-radius: 10px;
+    background: var(--border);
+    transition: background .4s;
+  }
+  .step-dot.done { background: var(--accent); }
+  .step-dot.active { background: var(--accent); opacity: .5; }
+
+  /* Character bubble */
+  .char-section { display: flex; align-items: flex-end; gap: 14px; margin-bottom: 22px; }
+  .char-avatar {
+    width: 52px; height: 68px; border-radius: 14px;
+    flex-shrink: 0; position: relative; overflow: hidden;
+    box-shadow: 0 4px 16px rgba(0,0,0,0.1);
+  }
+  .char-avatar svg { width: 100%; height: 100%; }
+  .bubble {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 16px 16px 16px 4px;
+    padding: 14px 16px;
+    flex: 1;
+    box-shadow: var(--shadow);
+    position: relative;
+  }
+  .bubble-name { font-size: 11px; font-weight: 500; letter-spacing: .5px; color: var(--text-muted); margin-bottom: 6px; text-transform: uppercase; }
+  .bubble-text { font-size: 14px; line-height: 1.6; color: var(--text-primary); }
+  .bubble-emotion {
+    display: inline-flex; align-items: center; gap: 5px;
+    margin-top: 10px; font-size: 11px; color: var(--text-muted);
+    background: var(--surface2); padding: 3px 10px; border-radius: 20px;
+  }
+
+  /* Choices */
+  .choices-label { font-size: 12px; font-weight: 500; letter-spacing: .5px; color: var(--text-muted); text-transform: uppercase; margin-bottom: 12px; }
+  .choices { display: flex; flex-direction: column; gap: 10px; }
+  .choice-btn {
+    background: var(--surface);
+    border: 1.5px solid var(--border);
+    border-radius: var(--radius-sm);
+    padding: 14px 16px;
+    text-align: left;
+    cursor: pointer;
+    font-family: 'Jost', sans-serif;
+    font-size: 13.5px;
+    line-height: 1.5;
+    color: var(--text-primary);
+    transition: border-color .2s, background .2s, transform .15s, box-shadow .2s;
+    position: relative;
+    overflow: hidden;
+  }
+  .choice-btn:hover:not(:disabled) {
+    border-color: var(--accent);
+    background: var(--surface2);
+    transform: translateY(-1px);
+    box-shadow: var(--shadow);
+  }
+  .choice-btn:disabled { cursor: default; }
+  .choice-btn.selected-good {
+    border-color: var(--good);
+    background: var(--good-bg);
+    color: var(--good);
+  }
+  .choice-btn.selected-bad {
+    border-color: var(--bad);
+    background: var(--bad-bg);
+    color: var(--bad);
+  }
+  .choice-btn.revealed-good {
+    border-color: var(--good);
+    background: var(--good-bg);
+    color: var(--good);
+    opacity: .6;
+  }
+  .choice-badge {
+    display: inline-flex; align-items: center; gap: 4px;
+    font-size: 11px; font-weight: 500;
+    margin-top: 6px; padding: 2px 8px; border-radius: 20px;
+  }
+  .badge-good { background: rgba(61,122,92,.12); color: var(--good); }
+  .badge-bad { background: rgba(181,65,43,.12); color: var(--bad); }
+
+  /* Feedback */
+  .feedback-card {
+    border-radius: var(--radius-sm);
+    padding: 14px 16px;
+    margin-top: 16px;
+    font-size: 13px;
+    line-height: 1.6;
+    animation: fadeUp .3s ease both;
+    display: none;
+  }
+  .feedback-card.show { display: block; }
+  .feedback-card.good { background: var(--good-bg); border: 1px solid rgba(61,122,92,.2); color: #2C5C42; }
+  .feedback-card.bad { background: var(--bad-bg); border: 1px solid rgba(181,65,43,.2); color: #8B3120; }
+  .feedback-title { font-weight: 500; margin-bottom: 4px; font-size: 12px; text-transform: uppercase; letter-spacing: .5px; }
+
+  /* Next button */
+  .btn-next {
+    display: flex; align-items: center; justify-content: center; gap: 10px;
+    width: 100%; margin-top: 20px;
+    background: var(--accent); color: #fff;
+    border: none; border-radius: var(--radius-sm);
+    padding: 15px;
+    font-family: 'Jost', sans-serif; font-size: 14px; font-weight: 500;
+    cursor: pointer; letter-spacing: .3px;
+    transition: background .2s, transform .15s;
+    display: none;
+  }
+  .btn-next.show { display: flex; }
+  .btn-next:hover { background: #333; transform: translateY(-1px); }
+
+  /* ── RESULT ── */
+  #result {
+    background: var(--bg);
+    padding: 40px 20px 60px;
+    justify-content: center;
+    align-items: center;
+  }
+  .result-inner {
+    max-width: 480px; width: 100%; text-align: center;
+    animation: fadeUp .6s ease both;
+  }
+  .result-emoji { font-size: 64px; margin-bottom: 24px; display: block; }
+  .result-title {
+    font-family: 'Cormorant Garamond', serif;
+    font-size: 36px; font-weight: 300;
+    margin-bottom: 12px; line-height: 1.2;
+  }
+  .result-desc { font-size: 14px; color: var(--text-secondary); line-height: 1.7; margin-bottom: 32px; }
+  .result-score-card {
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: var(--radius); padding: 24px;
+    margin-bottom: 28px;
+    display: flex; flex-direction: column; gap: 16px;
+  }
+  .score-row { display: flex; justify-content: space-between; align-items: center; }
+  .score-label { font-size: 13px; color: var(--text-muted); }
+  .score-value { font-size: 14px; font-weight: 500; }
+  .score-value.good { color: var(--good); }
+  .score-value.bad { color: var(--bad); }
+  .final-bar-wrap { background: var(--surface2); border-radius: 10px; height: 8px; overflow: hidden; }
+  .final-bar-fill { height: 100%; border-radius: 10px; transition: width 1s cubic-bezier(.4,0,.2,1); }
+  .result-btns { display: flex; flex-direction: column; gap: 10px; }
+  .btn-retry {
+    background: var(--accent); color: #fff; border: none;
+    padding: 15px; border-radius: var(--radius-sm);
+    font-family: 'Jost', sans-serif; font-size: 14px; font-weight: 500;
+    cursor: pointer; transition: background .2s;
+    letter-spacing: .3px;
+  }
+  .btn-retry:hover { background: #333; }
+  .btn-menu {
+    background: transparent; color: var(--text-secondary);
+    border: 1.5px solid var(--border); padding: 14px;
+    border-radius: var(--radius-sm);
+    font-family: 'Jost', sans-serif; font-size: 14px;
+    cursor: pointer; transition: border-color .2s, color .2s;
+    letter-spacing: .3px;
+  }
+  .btn-menu:hover { border-color: var(--accent); color: var(--text-primary); }
+
+  /* ── ANIMATIONS ── */
+  @keyframes fadeUp {
+    from { opacity: 0; transform: translateY(16px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+  @keyframes shake {
+    0%,100% { transform: translateX(0); }
+    25% { transform: translateX(-6px); }
+    75% { transform: translateX(6px); }
+  }
+  .shake { animation: shake .3s ease; }
+  @keyframes pulse-good {
+    0% { box-shadow: 0 0 0 0 rgba(61,122,92,.3); }
+    70% { box-shadow: 0 0 0 10px rgba(61,122,92,0); }
+    100% { box-shadow: 0 0 0 0 rgba(61,122,92,0); }
+  }
+  .pulse-good { animation: pulse-good .6s ease; }
+
+  /* Typing indicator */
+  .typing { display: flex; gap: 4px; align-items: center; padding: 4px 0; }
+  .typing span {
+    width: 6px; height: 6px; border-radius: 50%;
+    background: var(--text-muted); animation: bounce .8s infinite;
+  }
+  .typing span:nth-child(2) { animation-delay: .15s; }
+  .typing span:nth-child(3) { animation-delay: .3s; }
+  @keyframes bounce {
+    0%,80%,100% { transform: translateY(0); opacity: .4; }
+    40% { transform: translateY(-5px); opacity: 1; }
+  }
+
+  /* Scrollbar */
+  ::-webkit-scrollbar { width: 4px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
+</style>
+</head>
+<body>
+
+<!-- ══════════ INTRO ══════════ -->
+<div id="intro" class="screen active">
+  <div class="intro-inner">
+    <div class="brand-logo">Lamoda · Обучение</div>
+    <h1 class="intro-title">Диалоговый<br>тренажёр ПВЗ</h1>
+    <p class="intro-subtitle">Отработай реальные ситуации в пункте выдачи заказов.<br>Твои ответы влияют на настроение клиента.</p>
+    <button class="btn-start" onclick="showSelector()">
+      Начать обучение
+      <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M3 8h10M9 4l4 4-4 4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+    </button>
+    <p class="intro-note">3 сценария · ~10 минут</p>
+  </div>
+</div>
+
+<!-- ══════════ SELECTOR ══════════ -->
+<div id="selector" class="screen">
+  <div class="selector-header">
+    <button class="back-btn" onclick="showIntro()">
+      ← Назад
+    </button>
+    <h2 class="selector-title">Выбери сценарий</h2>
+    <p class="selector-sub">Каждый случай — реальная ситуация из практики ПВЗ</p>
+  </div>
+  <div class="scenario-grid">
+    <div class="scenario-card" onclick="startScenario(0)" style="animation-delay:.05s">
+      <div class="sc-icon">📦</div>
+      <div class="sc-info">
+        <div class="sc-title">Бракованный товар</div>
+        <div class="sc-desc">Клиент обнаружил дефект при получении заказа</div>
+      </div>
+      <span class="sc-diff diff-easy">Базовый</span>
+    </div>
+    <div class="scenario-card" onclick="startScenario(1)" style="animation-delay:.1s">
+      <div class="sc-icon">💳</div>
+      <div class="sc-info">
+        <div class="sc-title">Платная доставка</div>
+        <div class="sc-desc">Клиент недоволен списанием за доставку</div>
+      </div>
+      <span class="sc-diff diff-med">Средний</span>
+    </div>
+    <div class="scenario-card" onclick="startScenario(2)" style="animation-delay:.15s">
+      <div class="sc-icon">🔄</div>
+      <div class="sc-info">
+        <div class="sc-title">Очередь в час-пик</div>
+        <div class="sc-desc">Большая очередь, клиент нервничает и требует внимания</div>
+      </div>
+      <span class="sc-diff diff-hard">Сложный</span>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════ GAME ══════════ -->
+<div id="game" class="screen">
+  <div class="game-header">
+    <button class="back-btn" onclick="showSelector()" style="margin-bottom:0">← Меню</button>
+    <div class="game-title-sm" id="game-title-sm">Сценарий</div>
+    <div class="progress-wrap">
+      <span class="progress-label" id="progress-label">1 / 4</span>
+    </div>
+  </div>
+
+  <div class="mood-section">
+    <div class="mood-icon" id="mood-icon">😐</div>
+    <div class="mood-bar-wrap">
+      <div class="mood-bar-label">
+        <span>Настроение клиента</span>
+        <span id="mood-text">Нейтральное</span>
+      </div>
+      <div class="mood-bar-track">
+        <div class="mood-bar-fill" id="mood-bar" style="width:60%;background:var(--neutral)"></div>
+      </div>
+    </div>
+    <div class="mood-score" id="mood-score">60</div>
+  </div>
+
+  <div class="scene-wrap">
+    <div class="step-indicator" id="step-indicator"></div>
+
+    <div class="char-section">
+      <div class="char-avatar" id="char-avatar">
+        <!-- SVG avatar injected by JS -->
+      </div>
+      <div class="bubble">
+        <div class="bubble-name" id="bubble-name">Клиент</div>
+        <div class="bubble-text" id="bubble-text">
+          <div class="typing"><span></span><span></span><span></span></div>
+        </div>
+        <div class="bubble-emotion" id="bubble-emotion" style="display:none">
+          <span id="emotion-icon">😐</span>
+          <span id="emotion-label">Нейтрально</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="choices-label">Ваш ответ</div>
+    <div class="choices" id="choices"></div>
+
+    <div class="feedback-card" id="feedback-card">
+      <div class="feedback-title" id="feedback-title"></div>
+      <div id="feedback-text"></div>
+    </div>
+
+    <button class="btn-next" id="btn-next" onclick="nextStep()">
+      Продолжить
+      <svg width="14" height="14" viewBox="0 0 16 16" fill="none"><path d="M3 8h10M9 4l4 4-4 4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+    </button>
+  </div>
+</div>
+
+<!-- ══════════ RESULT ══════════ -->
+<div id="result" class="screen">
+  <div class="result-inner">
+    <span class="result-emoji" id="result-emoji">🎉</span>
+    <h2 class="result-title" id="result-title">Отличная работа!</h2>
+    <p class="result-desc" id="result-desc">Клиент остался доволен обслуживанием.</p>
+
+    <div class="result-score-card">
+      <div class="score-row">
+        <span class="score-label">Итоговый балл клиента</span>
+        <span class="score-value" id="final-score">—</span>
+      </div>
+      <div class="final-bar-wrap">
+        <div class="final-bar-fill" id="final-bar" style="width:0%"></div>
+      </div>
+      <div class="score-row">
+        <span class="score-label">Правильных ответов</span>
+        <span class="score-value" id="correct-count">—</span>
+      </div>
+      <div class="score-row">
+        <span class="score-label">Ошибок</span>
+        <span class="score-value" id="wrong-count">—</span>
+      </div>
+    </div>
+
+    <div class="result-btns">
+      <button class="btn-retry" onclick="retryScenario()">Попробовать снова</button>
+      <button class="btn-menu" onclick="showSelector()">Другой сценарий</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ══════════════════════════════════════════
+//  DATA — SCENARIOS
+// ══════════════════════════════════════════
+const scenarios = [
+  // ─────────── 0: БРАКОВАННЫЙ ТОВАР ───────────
+  {
+    id: 0,
+    title: 'Бракованный товар',
+    clientName: 'Анна',
+    clientType: 'woman',
+    steps: [
+      {
+        clientText: 'Здравствуйте. Я получила заказ — куртку, но на ней явный дефект: молния сбоку не застёгивается. Это просто ужас какой-то!',
+        emotion: { icon: '😤', label: 'Раздражена', moodDelta: 0 },
+        choices: [
+          {
+            text: 'Сожалею, что в вашем заказе оказался товар с дефектом. Этот товар не будет учитываться в проценте выкупа. Если вещь актуальна, мы можем оформить перезаказ.',
+            correct: true,
+            moodDelta: +18,
+            badge: '+18 к настроению',
+            feedback: 'Правильно! Вы принесли извинения, сообщили о защите по проценту выкупа и предложили конкретное решение — перезаказ. Именно так прописано в стандартах ПВЗ.',
+          },
+          {
+            text: 'Ну, бывает. Напишите в поддержку, они разберутся.',
+            correct: false,
+            moodDelta: -20,
+            badge: '-20 к настроению',
+            feedback: 'Ошибка. Перекладывание ответственности на службу поддержки и равнодушный тон резко снижают доверие клиента. Сотрудник ПВЗ обязан лично предложить решение.',
+          },
+          {
+            text: 'Может, вы сами сломали? При нас всё было нормально.',
+            correct: false,
+            moodDelta: -30,
+            badge: '-30 к настроению',
+            feedback: 'Серьёзная ошибка. Обвинять клиента в поломке — грубейшее нарушение стандартов сервиса и прямой путь к конфликту и жалобе.',
+          },
+          {
+            text: 'Понимаю ваше расстройство. Давайте оформим перезаказ, и дефектный товар не повлияет на ваш процент выкупа.',
+            correct: true,
+            moodDelta: +20,
+            badge: '+20 к настроению',
+            feedback: 'Отлично! Вы проявили эмпатию, предложили решение и сразу успокоили клиента насчёт процента выкупа.',
+          },
+        ]
+      },
+      {
+        clientText: 'Хорошо, с перезаказом понятно. Но я хотела бы убедиться, что это не подделка — может, Lamoda просто торгует некачественным товаром?',
+        emotion: { icon: '🤨', label: 'Сомневается', moodDelta: -5 },
+        choices: [
+          {
+            text: 'Мы сотрудничаем только с проверенными поставщиками и напрямую с производителями. Если есть сомнения — можете сфотографировать товар и отправить в службу поддержки, они проверят у поставщика.',
+            correct: true,
+            moodDelta: +15,
+            badge: '+15 к настроению',
+            feedback: 'Верно! Вы процитировали официальную позицию о поставщиках и предложили клиенту конкретный способ проверки подлинности.',
+          },
+          {
+            text: 'Ничего не могу сказать насчёт качества, это не ко мне.',
+            correct: false,
+            moodDelta: -15,
+            badge: '-15 к настроению',
+            feedback: 'Уход от ответа усиливает сомнения клиента. Сотрудник должен уверенно защищать репутацию бренда, используя стандартные формулировки.',
+          },
+          {
+            text: 'Lamoda — крупный маркетплейс, подделки исключены. Не переживайте.',
+            correct: false,
+            moodDelta: -8,
+            badge: '-8 к настроению',
+            feedback: 'Слишком категоричный ответ без конкретики. «Не переживайте» звучит пренебрежительно. Лучше предложить реальный способ проверки.',
+          },
+        ]
+      },
+      {
+        clientText: 'Понятно, спасибо. Значит, перезаказ — и всё бесплатно, доставка тоже?',
+        emotion: { icon: '🙂', label: 'Успокаивается', moodDelta: +5 },
+        choices: [
+          {
+            text: 'Да, перезаказ оформляется через приложение Lamoda. Коллеги из поддержки также могут помочь восстановить скидку, если она была применена к первоначальному заказу.',
+            correct: true,
+            moodDelta: +15,
+            badge: '+15 к настроению',
+            feedback: 'Отлично! Полная информация о восстановлении скидки — приятный бонус для клиента, который по стандартам нужно упоминать.',
+          },
+          {
+            text: 'Насчёт скидки не знаю, уточняйте сами в приложении.',
+            correct: false,
+            moodDelta: -10,
+            badge: '-10 к настроению',
+            feedback: 'Неполный ответ. По стандарту, при перезаказе сотрудник должен сообщить о возможности восстановления скидки — это важная часть клиентского опыта.',
+          },
+          {
+            text: 'Перезаказ — да, но доставка может быть платной, зависит от вашего статуса.',
+            correct: false,
+            moodDelta: -5,
+            badge: '-5 к настроению',
+            feedback: 'Не совсем точно. Стандарт предполагает уточнение всех условий и предложение обратиться в поддержку для восстановления всех бонусов по первоначальному заказу.',
+          },
+        ]
+      },
+      {
+        clientText: 'Окей. А если снова придёт с дефектом — что тогда? Третий раз приходить?',
+        emotion: { icon: '😕', label: 'Беспокоится', moodDelta: -8 },
+        choices: [
+          {
+            text: 'Понимаю ваше беспокойство. Если при следующей доставке будет повторная проблема — мы снова оформим перезаказ, и товар опять не будет учитываться в выкупе. Вы ничего не потеряете.',
+            correct: true,
+            moodDelta: +20,
+            badge: '+20 к настроению',
+            feedback: 'Превосходно! Вы развеяли страх клиента, показали что система защищает его интересы, и завершили диалог на позитивной ноте.',
+          },
+          {
+            text: 'Ну, надеемся, что такого не повторится.',
+            correct: false,
+            moodDelta: -5,
+            badge: '-5 к настроению',
+            feedback: 'Расплывчатый ответ без конкретных гарантий. Клиент хочет уверенности, а не надежды. Нужно чётко объяснить механизм защиты.',
+          },
+          {
+            text: 'Это уже третий раз — надо написать жалобу на поставщика в поддержку.',
+            correct: false,
+            moodDelta: 0,
+            badge: '0 к настроению',
+            feedback: 'Переключение на жалобу уместно как дополнение, но без основного ответа о защите выкупа клиент остаётся тревожным. Сначала — успокоить, потом — жалоба.',
+          },
+        ]
+      },
+    ]
+  },
+
+  // ─────────── 1: ПЛАТНАЯ ДОСТАВКА ───────────
+  {
+    id: 1,
+    title: 'Платная доставка',
+    clientName: 'Игорь',
+    clientType: 'man',
+    steps: [
+      {
+        clientText: 'Стоп, при оформлении мне пришёл чек с доставкой 249 рублей! Я такого не ожидал — нигде не было написано, что доставка платная!',
+        emotion: { icon: '😠', label: 'Возмущён', moodDelta: 0 },
+        choices: [
+          {
+            text: 'Понимаю ваше удивление. При оформлении заказа в корзине всегда отображается стоимость доставки. Подтверждая заказ, вы соглашаетесь с условиями — стоимость рассчитывается индивидуально и зависит от региона и статуса в программе лояльности.',
+            correct: true,
+            moodDelta: +12,
+            badge: '+12 к настроению',
+            feedback: 'Правильно. Вы спокойно сослались на оферту и объяснили механизм расчёта доставки — именно так прописано в стандартах.',
+          },
+          {
+            text: 'Всегда платно, ничего не могу сделать. Это политика компании.',
+            correct: false,
+            moodDelta: -18,
+            badge: '-18 к настроению',
+            feedback: 'Ошибка. Сухая отсылка к «политике» без объяснения воспринимается как отписка. Клиент чувствует себя обманутым.',
+          },
+          {
+            text: 'Значит, плохо читали при заказе. Там всё написано.',
+            correct: false,
+            moodDelta: -25,
+            badge: '-25 к настроению',
+            feedback: 'Грубейшая ошибка. Обвинять клиента в невнимательности категорически запрещено стандартами сервиса. Это конфликт.',
+          },
+          {
+            text: 'Сожалею, что это стало неожиданностью. Доставка станет бесплатной, если выкупить заказ на сумму от установленного порога. Также предоплата заказа всегда делает доставку бесплатной.',
+            correct: true,
+            moodDelta: +18,
+            badge: '+18 к настроению',
+            feedback: 'Отлично! Вы не только объяснили ситуацию, но и сразу предложили два способа получить бесплатную доставку в будущем.',
+          },
+        ]
+      },
+      {
+        clientText: 'Ладно, допустим. Но 249 рублей — это же много! Может, можно вернуть эту сумму?',
+        emotion: { icon: '🙁', label: 'Недоволен', moodDelta: -5 },
+        choices: [
+          {
+            text: 'К сожалению, стоимость доставки не возвращается — это прописано в условиях оферты, с которыми вы согласились при заказе. Но в следующий раз вы можете использовать предоплату для бесплатной доставки.',
+            correct: true,
+            moodDelta: +10,
+            badge: '+10 к настроению',
+            feedback: 'Верно. Чёткий, честный ответ со ссылкой на договор и конструктивным советом на будущее — правильная позиция сотрудника.',
+          },
+          {
+            text: 'Нет, ничего не вернём.',
+            correct: false,
+            moodDelta: -15,
+            badge: '-15 к настроению',
+            feedback: 'Слишком категорично и без объяснения причин. Клиент заслуживает понимания ситуации, а не короткого отказа.',
+          },
+          {
+            text: 'Позвоните в колл-центр, они могут что-то сделать.',
+            correct: false,
+            moodDelta: -8,
+            badge: '-8 к настроению',
+            feedback: 'Перекладывание без объяснения. Если возврат доставки невозможен — нужно сказать об этом прямо и объяснить почему, а не отправлять куда-то.',
+          },
+        ]
+      },
+      {
+        clientText: 'Понял. А как вообще стать участником программы лояльности, чтобы доставка стала бесплатной?',
+        emotion: { icon: '🤔', label: 'Заинтересован', moodDelta: +5 },
+        choices: [
+          {
+            text: 'Программа лояльности активируется автоматически при регистрации. Чем выше ваш процент выкупа, тем лучше условия доставки. Актуальные пороги и условия можно посмотреть в приложении или на сайте Lamoda.',
+            correct: true,
+            moodDelta: +18,
+            badge: '+18 к настроению',
+            feedback: 'Отлично! Вы превратили конфликт в полезную консультацию. Клиент уходит с конкретной информацией и позитивным впечатлением.',
+          },
+          {
+            text: 'Не знаю точно, лучше в приложении посмотрите.',
+            correct: false,
+            moodDelta: -5,
+            badge: '-5 к настроению',
+            feedback: 'Уход от ответа. Сотрудник ПВЗ должен владеть базовой информацией о программе лояльности — это напрямую влияет на удовлетворённость клиента.',
+          },
+          {
+            text: 'Просто покупайте больше и выкупайте заказы, тогда всё будет бесплатно.',
+            correct: false,
+            moodDelta: +3,
+            badge: '+3 к настроению',
+            feedback: 'Примерно правильно по смыслу, но слишком неформально и без деталей. Правильная формулировка важна для профессионального образа сотрудника.',
+          },
+        ]
+      },
+    ]
+  },
+
+  // ─────────── 2: ОЧЕРЕДЬ В ЧАС-ПИК ───────────
+  {
+    id: 2,
+    title: 'Очередь в час-пик',
+    clientName: 'Светлана',
+    clientType: 'woman2',
+    steps: [
+      {
+        clientText: 'Почему такая огромная очередь?! Я уже 20 минут жду! Вы не можете нормально организовать работу?',
+        emotion: { icon: '😡', label: 'Очень раздражена', moodDelta: 0 },
+        choices: [
+          {
+            text: 'Здравствуйте, понимаю ваше нетерпение. Сейчас у нас небольшая очередь — ожидание примерно 6 минут. Пожалуйста, подготовьте штрихкод заказа, чтобы я смогла обслужить вас максимально быстро.',
+            correct: true,
+            moodDelta: +15,
+            badge: '+15 к настроению',
+            feedback: 'Отлично! Вы поздоровались, проявили эмпатию, назвали точное время ожидания и дали конкретное действие — всё по стандарту для часа-пик.',
+          },
+          {
+            text: 'У всех очередь, ждите как все.',
+            correct: false,
+            moodDelta: -22,
+            badge: '-22 к настроению',
+            feedback: 'Грубый ответ, который заденет не только эту клиентку, но и всю очередь. Недопустимо в стандартах ПВЗ.',
+          },
+          {
+            text: 'Извините, ничего не могу поделать.',
+            correct: false,
+            moodDelta: -10,
+            badge: '-10 к настроению',
+            feedback: 'Пассивный ответ без полезной информации. Клиент не получил ни объяснения, ни способа ускорить процесс.',
+          },
+          {
+            text: 'Приношу извинения за ожидание. Обратите внимание: мы чередуем выдачу и возврат, чтобы все успели получить заказ. Вам осталось примерно 4 минуты.',
+            correct: true,
+            moodDelta: +20,
+            badge: '+20 к настроению',
+            feedback: 'Превосходно! Объяснение системы чередования выдачи и возврата помогает клиентам понять логику очереди и снижает напряжение.',
+          },
+        ]
+      },
+      {
+        clientText: 'Ладно. Но вот тот мужчина подошёл позже меня, а его обслуживают первым! Это нечестно!',
+        emotion: { icon: '😤', label: 'Возмущена несправедливостью', moodDelta: -10 },
+        choices: [
+          {
+            text: 'Обратите внимание: мы чередуем выдачу новых заказов и возврат после примерки — так все успевают получить заказ и сдать неподошедшие вещи в разумное время. Это часть нашего процесса, не нарушение очерёдности.',
+            correct: true,
+            moodDelta: +18,
+            badge: '+18 к настроению',
+            feedback: 'Правильно! Стандартная формулировка о чередовании выдачи и возвратов снимает ощущение несправедливости и даёт логичное объяснение.',
+          },
+          {
+            text: 'Он пришёл раньше, я точно помню.',
+            correct: false,
+            moodDelta: -15,
+            badge: '-15 к настроению',
+            feedback: 'Спорить с клиентом о фактах — плохая тактика. Нужно объяснить систему работы, а не доказывать свою правоту.',
+          },
+          {
+            text: 'Это просто такая система, я ничего не могу изменить.',
+            correct: false,
+            moodDelta: -8,
+            badge: '-8 к настроению',
+            feedback: 'Без объяснения «почему» клиент по-прежнему чувствует несправедливость. Нужно раскрыть логику чередования.',
+          },
+        ]
+      },
+      {
+        clientText: 'Вы знаете, я очень устала после работы. Можно побыстрее?',
+        emotion: { icon: '😔', label: 'Уставшая', moodDelta: +5 },
+        choices: [
+          {
+            text: 'Конечно, понимаю. Подготовьте штрихкод в приложении или SMS — это значительно ускорит процесс, и я оформлю вас в течение пары минут.',
+            correct: true,
+            moodDelta: +20,
+            badge: '+20 к настроению',
+            feedback: 'Отличная работа! Эмпатия плюс конкретное действие для ускорения — именно такой подход превращает усталого раздражённого клиента в лояльного.',
+          },
+          {
+            text: 'Все устали, у нас час-пик.',
+            correct: false,
+            moodDelta: -20,
+            badge: '-20 к настроению',
+            feedback: 'Грубо и бесполезно. Сравнение с другими клиентами никогда не работает — каждый человек воспринимает свои неудобства как уникальные.',
+          },
+          {
+            text: 'Сделаю всё возможное, постараюсь.',
+            correct: false,
+            moodDelta: +5,
+            badge: '+5 к настроению',
+            feedback: 'Доброжелательно, но расплывчато. Без конкретного действия (подготовить штрихкод) это просто слова. Клиент не знает, чем помочь.',
+          },
+        ]
+      },
+      {
+        clientText: 'Спасибо, наконец-то! А упаковать товар можете? Я несу подарок.',
+        emotion: { icon: '🙂', label: 'Успокоилась', moodDelta: +5 },
+        choices: [
+          {
+            text: 'Конечно, сейчас упакую. Приношу извинения, что не предложила сразу — в час-пик бывает, что упускаем этот шаг. Сейчас исправим.',
+            correct: true,
+            moodDelta: +18,
+            badge: '+18 к настроению',
+            feedback: 'Отлично! Вы извинились, объяснили причину и сразу устранили недочёт. По стандарту, упаковка всегда предлагается при выдаче.',
+          },
+          {
+            text: 'Нет, сейчас очень занята, следующий клиент ждёт.',
+            correct: false,
+            moodDelta: -18,
+            badge: '-18 к настроению',
+            feedback: 'Категорически нет! Стандарт прямо указывает: в час-пик всё равно приносим извинения и упаковываем товар. Отказ здесь недопустим.',
+          },
+          {
+            text: 'Да, но только быстро.',
+            correct: false,
+            moodDelta: 0,
+            badge: '0 к настроению',
+            feedback: 'Услуга оказана, но «только быстро» — не лучшая формулировка. Нужно принести извинения за то, что не предложили сразу, и сделать это с улыбкой.',
+          },
+        ]
+      },
+    ]
+  }
+];
+
+// ══════════════════════════════════════════
+//  STATE
+// ══════════════════════════════════════════
+let currentScenario = null;
+let currentStep = 0;
+let mood = 60;
+let correctCount = 0;
+let wrongCount = 0;
+let answered = false;
+
+// ══════════════════════════════════════════
+//  SVG AVATARS
+// ══════════════════════════════════════════
+function getAvatar(type) {
+  if (type === 'woman') return `
+    <svg viewBox="0 0 52 68" xmlns="http://www.w3.org/2000/svg">
+      <rect width="52" height="68" fill="#E8E2DB"/>
+      <!-- body -->
+      <rect x="10" y="42" width="32" height="26" rx="4" fill="#C9B99A"/>
+      <!-- collar -->
+      <polygon points="22,42 30,42 26,50" fill="#BFA882"/>
+      <!-- head -->
+      <circle cx="26" cy="22" r="13" fill="#F2C9A0"/>
+      <!-- hair -->
+      <ellipse cx="26" cy="13" rx="13" ry="7" fill="#4A3728"/>
+      <ellipse cx="14" cy="24" rx="3" ry="7" fill="#4A3728"/>
+      <ellipse cx="38" cy="24" rx="3" ry="7" fill="#4A3728"/>
+      <!-- eyes -->
+      <circle cx="21" cy="21" r="1.8" fill="#2C2018"/>
+      <circle cx="31" cy="21" r="1.8" fill="#2C2018"/>
+      <!-- mouth -->
+      <path d="M22 27 Q26 30 30 27" stroke="#C27B5A" stroke-width="1.2" fill="none" stroke-linecap="round"/>
+    </svg>`;
+  if (type === 'woman2') return `
+    <svg viewBox="0 0 52 68" xmlns="http://www.w3.org/2000/svg">
+      <rect width="52" height="68" fill="#E8E2DB"/>
+      <rect x="10" y="42" width="32" height="26" rx="4" fill="#A8B8C8"/>
+      <polygon points="22,42 30,42 26,50" fill="#8CA0B0"/>
+      <circle cx="26" cy="22" r="13" fill="#F5D9C0"/>
+      <ellipse cx="26" cy="11" rx="14" ry="6" fill="#6B4C3B"/>
+      <rect x="12" y="10" width="6" height="18" rx="3" fill="#6B4C3B"/>
+      <rect x="34" y="10" width="6" height="18" rx="3" fill="#6B4C3B"/>
+      <circle cx="21" cy="21" r="1.8" fill="#2C2018"/>
+      <circle cx="31" cy="21" r="1.8" fill="#2C2018"/>
+      <path d="M22 27 Q26 29 30 27" stroke="#C27B5A" stroke-width="1.2" fill="none" stroke-linecap="round"/>
+    </svg>`;
+  // man
+  return `
+    <svg viewBox="0 0 52 68" xmlns="http://www.w3.org/2000/svg">
+      <rect width="52" height="68" fill="#E8E2DB"/>
+      <rect x="9" y="42" width="34" height="26" rx="4" fill="#4A5568"/>
+      <!-- tie -->
+      <polygon points="24,42 28,42 27,56 25,56" fill="#8B9DC3"/>
+      <!-- neck -->
+      <rect x="22" y="35" width="8" height="9" fill="#E8C49A"/>
+      <!-- head -->
+      <circle cx="26" cy="22" r="13" fill="#E8C49A"/>
+      <!-- hair -->
+      <ellipse cx="26" cy="11" rx="12" ry="5" fill="#3D2B1F"/>
+      <!-- ear -->
+      <ellipse cx="13" cy="22" rx="2" ry="3" fill="#E8C49A"/>
+      <ellipse cx="39" cy="22" rx="2" ry="3" fill="#E8C49A"/>
+      <!-- eyes -->
+      <circle cx="21" cy="21" r="1.8" fill="#2C2018"/>
+      <circle cx="31" cy="21" r="1.8" fill="#2C2018"/>
+      <!-- brows -->
+      <path d="M18.5 17.5 Q21 16.5 23.5 17.5" stroke="#3D2B1F" stroke-width="1.2" fill="none"/>
+      <path d="M28.5 17.5 Q31 16.5 33.5 17.5" stroke="#3D2B1F" stroke-width="1.2" fill="none"/>
+      <!-- mouth -->
+      <path d="M22 28 Q26 31 30 28" stroke="#C27B5A" stroke-width="1.2" fill="none" stroke-linecap="round"/>
+    </svg>`;
+}
+
+// ══════════════════════════════════════════
+//  MOOD
+// ══════════════════════════════════════════
+function getMoodData(score) {
+  if (score >= 80) return { icon: '😊', label: 'Доволен', color: '#3D7A5C' };
+  if (score >= 60) return { icon: '🙂', label: 'Нейтральное', color: '#6B6560' };
+  if (score >= 40) return { icon: '😕', label: 'Недоволен', color: '#B57A2B' };
+  return { icon: '😠', label: 'Раздражён', color: '#B5412B' };
+}
+
+function updateMoodUI() {
+  const clamped = Math.max(0, Math.min(100, mood));
+  const data = getMoodData(clamped);
+  document.getElementById('mood-icon').textContent = data.icon;
+  document.getElementById('mood-text').textContent = data.label;
+  document.getElementById('mood-score').textContent = clamped;
+  const bar = document.getElementById('mood-bar');
+  bar.style.width = clamped + '%';
+  bar.style.backgroundColor = data.color;
+}
+
+// ══════════════════════════════════════════
+//  NAVIGATION
+// ══════════════════════════════════════════
+function showScreen(id) {
+  document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+  document.getElementById(id).classList.add('active');
+  window.scrollTo(0, 0);
+}
+function showIntro() { showScreen('intro'); }
+function showSelector() { showScreen('selector'); }
+
+function startScenario(idx) {
+  currentScenario = scenarios[idx];
+  currentStep = 0;
+  mood = 60;
+  correctCount = 0;
+  wrongCount = 0;
+  document.getElementById('game-title-sm').textContent = currentScenario.title;
+  document.getElementById('char-avatar').innerHTML = getAvatar(currentScenario.clientType);
+  document.getElementById('bubble-name').textContent = currentScenario.clientName;
+  buildStepIndicator();
+  showScreen('game');
+  renderStep();
+}
+
+function buildStepIndicator() {
+  const el = document.getElementById('step-indicator');
+  el.innerHTML = '';
+  currentScenario.steps.forEach((_, i) => {
+    const d = document.createElement('div');
+    d.className = 'step-dot' + (i === 0 ? ' active' : '');
+    d.id = 'dot-' + i;
+    el.appendChild(d);
+  });
+}
+
+function updateStepIndicator() {
+  currentScenario.steps.forEach((_, i) => {
+    const d = document.getElementById('dot-' + i);
+    if (!d) return;
+    d.className = 'step-dot' + (i < currentStep ? ' done' : i === currentStep ? ' active' : '');
+  });
+  document.getElementById('progress-label').textContent = `${currentStep + 1} / ${currentScenario.steps.length}`;
+}
+
+// ══════════════════════════════════════════
+//  RENDER STEP
+// ══════════════════════════════════════════
+function renderStep() {
+  answered = false;
+  updateStepIndicator();
+  updateMoodUI();
+
+  const step = currentScenario.steps[currentStep];
+
+  // mood delta from emotion
+  if (step.emotion.moodDelta !== 0) {
+    mood = Math.max(0, Math.min(100, mood + step.emotion.moodDelta));
+    updateMoodUI();
+  }
+
+  // bubble
+  const bubbleText = document.getElementById('bubble-text');
+  bubbleText.innerHTML = '<div class="typing"><span></span><span></span><span></span></div>';
+  const emo = document.getElementById('bubble-emotion');
+  emo.style.display = 'none';
+  document.getElementById('feedback-card').classList.remove('show');
+  document.getElementById('btn-next').classList.remove('show');
+
+  setTimeout(() => {
+    bubbleText.textContent = step.clientText;
+    emo.style.display = 'flex';
+    document.getElementById('emotion-icon').textContent = step.emotion.icon;
+    document.getElementById('emotion-label').textContent = step.emotion.label;
+    renderChoices(step);
+  }, 800);
+}
+
+function renderChoices(step) {
+  const container = document.getElementById('choices');
+  container.innerHTML = '';
+  step.choices.forEach((choice, i) => {
+    const btn = document.createElement('button');
+    btn.className = 'choice-btn';
+    btn.textContent = choice.text;
+    btn.onclick = () => selectChoice(i, step);
+    btn.style.animationDelay = (i * 0.06) + 's';
+    btn.style.animation = 'fadeUp .4s ease both';
+    container.appendChild(btn);
+  });
+}
+
+function selectChoice(idx, step) {
+  if (answered) return;
+  answered = true;
+
+  const choice = step.choices[idx];
+  const buttons = document.querySelectorAll('.choice-btn');
+
+  // update mood
+  mood = Math.max(0, Math.min(100, mood + choice.moodDelta));
+  if (choice.correct) correctCount++; else wrongCount++;
+  updateMoodUI();
+
+  // style buttons
+  buttons.forEach((btn, i) => {
+    btn.disabled = true;
+    const c = step.choices[i];
+    if (i === idx) {
+      btn.className = 'choice-btn ' + (choice.correct ? 'selected-good pulse-good' : 'selected-bad shake');
+    } else if (c.correct && !choice.correct) {
+      btn.className = 'choice-btn revealed-good';
+    }
+    // add badge
+    if (i === idx || (c.correct && !choice.correct)) {
+      const badge = document.createElement('div');
+      badge.className = 'choice-badge ' + (c.correct ? 'badge-good' : 'badge-bad');
+      badge.textContent = c.badge;
+      btn.appendChild(badge);
+    }
+  });
+
+  // feedback
+  const fb = document.getElementById('feedback-card');
+  fb.className = 'feedback-card show ' + (choice.correct ? 'good' : 'bad');
+  document.getElementById('feedback-title').textContent = choice.correct ? '✓ Верно' : '✗ Ошибка';
+  document.getElementById('feedback-text').textContent = choice.feedback;
+
+  // next button
+  document.getElementById('btn-next').classList.add('show');
+
+  // scroll to feedback
+  setTimeout(() => fb.scrollIntoView({ behavior: 'smooth', block: 'nearest' }), 100);
+}
+
+function nextStep() {
+  currentStep++;
+  if (currentStep >= currentScenario.steps.length) {
+    showResult();
+    return;
+  }
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+  setTimeout(renderStep, 300);
+}
+
+// ══════════════════════════════════════════
+//  RESULT
+// ══════════════════════════════════════════
+function showResult() {
+  const total = correctCount + wrongCount;
+  const pct = Math.round((correctCount / total) * 100);
+  const finalMood = Math.max(0, Math.min(100, mood));
+
+  let emoji, title, desc;
+  if (finalMood >= 80 && pct >= 75) {
+    emoji = '🌟'; title = 'Великолепно!';
+    desc = 'Клиент в восторге от обслуживания. Вы точно следовали стандартам ПВЗ и умело управляли эмоциями клиента.';
+  } else if (finalMood >= 60 && pct >= 50) {
+    emoji = '👍'; title = 'Хорошая работа';
+    desc = 'Клиент остался доволен, но есть точки роста. Обратите внимание на шаги, где вы допустили ошибки.';
+  } else if (finalMood >= 40) {
+    emoji = '🤔'; title = 'Есть над чем работать';
+    desc = 'Несколько ответов негативно повлияли на клиента. Перечитайте стандарты сервиса и попробуйте снова.';
+  } else {
+    emoji = '😕'; title = 'Нужна практика';
+    desc = 'Клиент остался недоволен. Вернитесь к изучению стандартов обслуживания ПВЗ и попробуйте снова.';
+  }
+
+  document.getElementById('result-emoji').textContent = emoji;
+  document.getElementById('result-title').textContent = title;
+  document.getElementById('result-desc').textContent = desc;
+
+  const scoreEl = document.getElementById('final-score');
+  scoreEl.textContent = finalMood + ' / 100';
+  scoreEl.className = 'score-value ' + (finalMood >= 60 ? 'good' : 'bad');
+
+  document.getElementById('correct-count').textContent = correctCount + ' из ' + total;
+  document.getElementById('correct-count').className = 'score-value ' + (pct >= 60 ? 'good' : 'bad');
+  document.getElementById('wrong-count').textContent = wrongCount;
+  document.getElementById('wrong-count').className = 'score-value ' + (wrongCount === 0 ? 'good' : 'bad');
+
+  showScreen('result');
+  setTimeout(() => {
+    const bar = document.getElementById('final-bar');
+    const moodData = getMoodData(finalMood);
+    bar.style.width = finalMood + '%';
+    bar.style.backgroundColor = moodData.color;
+  }, 300);
+}
+
+function retryScenario() {
+  startScenario(currentScenario.id);
+}
+
+// init
+updateMoodUI();
+</script>
+<script>
+function findAPI(win) {
+    while (win.API == null && win.parent != null && win.parent != win) {
+        win = win.parent;
+    }
+    return win.API;
+}
+
+var api = findAPI(window);
+
+if (api) {
+    api.LMSInitialize("");
+
+    window.addEventListener("beforeunload", function () {
+        api.LMSSetValue("cmi.core.lesson_status", "completed");
+        api.LMSCommit("");
+        api.LMSFinish("");
+    });
+}
+</script>
+</body>
+</html>
