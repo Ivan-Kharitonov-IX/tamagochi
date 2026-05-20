@@ -1,9 +1,23 @@
+function scormComplete(score) {
+  const API = window.API || window.parent?.API || window.top?.API;
+  if (!API) return; // не в LMS — просто игнорируем
+  try {
+    API.LMSInitialize("");
+    API.LMSSetValue("cmi.core.lesson_status", score >= 70 ? "passed" : "failed");
+    API.LMSSetValue("cmi.core.score.raw", String(score));
+    API.LMSSetValue("cmi.core.score.min", "0");
+    API.LMSSetValue("cmi.core.score.max", "100");
+    API.LMSSetValue("cmi.core.exit", "");
+    API.LMSCommit("");
+    API.LMSFinish("");
+  } catch(e) { console.warn("SCORM error", e); }
+}
 <!DOCTYPE html>
 <html lang="ru">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Lamoda — Диалоговый тренажёр</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, user-scalable=no">
+<title>Lamoda — Диалоговый тренажёр ПВЗ</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;1,300&family=Inter:wght@300;400;500&display=swap" rel="stylesheet">
 <style>
@@ -77,22 +91,19 @@ body{
 
 .intro-nav{
   width:100%;max-width:680px;
-  padding:28px 32px 0;
+  padding:24px 24px 0;
   display:flex;align-items:center;justify-content:space-between;
   position:relative;z-index:2;
   animation:fadeUp .5s ease both;
 }
 .intro-logo img{height:22px;filter:invert(1);}
-.intro-tag{
-  font-size:10px;letter-spacing:2.5px;text-transform:uppercase;
-  color:rgba(255,255,255,.4);font-weight:400;
-}
+.intro-tag{display:none;}
 
 .intro-body{
   flex:1;display:flex;flex-direction:column;
   align-items:flex-start;justify-content:center;
   width:100%;max-width:680px;
-  padding:48px 32px 80px;
+  padding:36px 24px 60px;
   position:relative;z-index:2;
 }
 .intro-eyebrow{
@@ -117,39 +128,41 @@ body{
   font-size:13px;font-weight:300;
   color:rgba(255,255,255,.5);
   line-height:1.7;
-  margin-bottom:48px;
+  margin-bottom:20px;
   max-width:380px;
   animation:fadeUp .6s .1s ease both;
 }
 .intro-cta{
   display:inline-flex;align-items:center;gap:14px;
   background:var(--white);color:var(--black);
-  border:none;padding:15px 32px;
+  border:none;padding:16px 36px;
   border-radius:2px;
   font-family:'Inter',sans-serif;
   font-size:12px;font-weight:500;
   letter-spacing:1.5px;text-transform:uppercase;
   cursor:pointer;
+  -webkit-tap-highlight-color:transparent;
+  touch-action:manipulation;
   transition:background .2s,transform .15s;
   animation:fadeUp .6s .15s ease both;
+  /* Ensure button is always clickable */
+  position:relative;z-index:3;
+  min-height:52px;
 }
 .intro-cta:hover{background:#E8E6E3;transform:translateY(-1px);}
+.intro-cta:active{background:#D8D6D3;transform:none;}
 .intro-cta-arrow{
   display:flex;align-items:center;
   transition:transform .2s;
 }
 .intro-cta:hover .intro-cta-arrow{transform:translateX(4px);}
-.intro-meta{
-  position:absolute;bottom:28px;left:32px;
-  font-size:10px;color:rgba(255,255,255,.25);
-  letter-spacing:.5px;z-index:2;
+.intro-meta{display:none;}
+.intro-meta-inline{
+  font-size:10px;letter-spacing:2px;text-transform:uppercase;
+  color:rgba(255,255,255,.3);margin-bottom:32px;
+  animation:fadeUp .6s .12s ease both;
 }
-/* Decorative vertical text right side */
-.intro-deco{
-  position:absolute;right:32px;top:50%;transform:translateY(-50%) rotate(90deg);
-  font-size:9px;letter-spacing:4px;text-transform:uppercase;
-  color:rgba(255,255,255,.12);white-space:nowrap;z-index:1;
-}
+.intro-deco{display:none;}
 
 /* ══════════════════════════════════
    SELECTOR
@@ -211,6 +224,9 @@ body{
   border-radius:0;
   margin:0;
   color:var(--white);
+  -webkit-tap-highlight-color:transparent;
+  touch-action:manipulation;
+  min-height:72px;
 }
 .scenario-row:first-child{border-radius:var(--r) var(--r) 0 0;}
 .scenario-row:last-child{border-radius:0 0 var(--r) var(--r);}
@@ -248,6 +264,23 @@ body{
   border-color:rgba(251,180,255,.3);
 }
 .sc-arrow{color:rgba(255,255,255,.25);font-size:16px;}
+.sc-status{font-size:11px;letter-spacing:.5px;flex-shrink:0;display:flex;align-items:center;gap:6px;}
+.sc-status.done{color:var(--green);}
+.sc-status.active{color:rgba(255,255,255,.7);}
+.sc-status.locked{color:rgba(255,255,255,.2);}
+.scenario-row.locked{opacity:.45;cursor:not-allowed;}
+.scenario-row.locked:hover{background:rgba(255,255,255,.04);}
+.btn-finish{
+  width:100%;margin-top:20px;padding:16px;
+  background:var(--white);color:var(--black);
+  border:none;border-radius:var(--r-sm);
+  font-family:'Inter',sans-serif;
+  font-size:11px;font-weight:500;letter-spacing:2px;text-transform:uppercase;
+  cursor:pointer;transition:background .2s,transform .15s;
+  display:none;animation:fadeUp .5s ease both;
+}
+.btn-finish.show{display:block;}
+.btn-finish:hover{background:#E8E6E3;transform:translateY(-1px);}
 
 /* ══════════════════════════════════
    GAME
@@ -377,8 +410,11 @@ body{
   font-family:'Inter',sans-serif;
   font-size:13px;line-height:1.55;
   color:var(--text);
+  -webkit-tap-highlight-color:transparent;
+  touch-action:manipulation;
   transition:border-color .15s,background .15s,transform .12s,box-shadow .15s;
   position:relative;overflow:hidden;
+  min-height:48px;
 }
 .choice-btn:hover:not(:disabled){
   border-color:var(--black);
@@ -491,9 +527,9 @@ body{
   padding:14px 16px;
 }
 .score-lbl{font-size:10px;letter-spacing:1.5px;text-transform:uppercase;color:var(--text-3);margin-bottom:6px;}
-.score-val{font-size:22px;font-weight:500;}
-.score-val.g{color:var(--good);}
-.score-val.b{color:var(--bad);}
+.score-val{font-size:22px;font-weight:500;color:var(--black);}
+.score-val.g{color:var(--black);}
+.score-val.b{color:var(--black);}
 .score-cell-wide{
   grid-column:1/-1;
   background:var(--surface2);
@@ -501,7 +537,7 @@ body{
   padding:14px 16px;
 }
 .final-track{height:4px;background:var(--border);border-radius:10px;overflow:hidden;margin-top:8px;}
-.final-fill{height:100%;border-radius:10px;transition:width 1.2s cubic-bezier(.4,0,.2,1);}
+.final-fill{height:100%;border-radius:10px;background:var(--black)!important;transition:width 1.2s cubic-bezier(.4,0,.2,1);}
 .result-btns{display:flex;flex-direction:column;gap:8px;}
 .btn-retry{
   background:var(--black);color:var(--white);
@@ -526,6 +562,42 @@ body{
   background:linear-gradient(90deg,var(--black) 0%,var(--blue) 40%,var(--sky) 70%,var(--green) 100%);
   margin-bottom:20px;border-radius:2px;
 }
+.sc-result-card{
+  background:var(--surface2);
+  border-radius:var(--r-sm);
+  padding:14px 16px;
+  display:flex;align-items:center;gap:14px;
+}
+.sc-result-num{
+  font-family:'Cormorant Garamond',serif;
+  font-size:24px;font-weight:300;
+  color:var(--text-3);min-width:28px;
+}
+.sc-result-info{flex:1;}
+.sc-result-title{font-size:13px;font-weight:500;margin-bottom:3px;}
+.sc-result-bar-wrap{height:3px;background:var(--border);border-radius:10px;overflow:hidden;margin-top:6px;}
+.sc-result-bar{height:100%;border-radius:10px;background:var(--black);transition:width .8s ease;}
+.sc-result-score{font-size:12px;font-weight:500;min-width:36px;text-align:right;}
+.fb-block{
+  border-radius:var(--r-sm);
+  padding:16px 18px;
+  margin-bottom:10px;
+}
+.fb-block-title{
+  font-size:9px;letter-spacing:2px;text-transform:uppercase;
+  font-weight:500;margin-bottom:8px;
+  display:flex;align-items:center;gap:8px;
+}
+.fb-block-title::before{
+  content:'';width:16px;height:2px;border-radius:2px;background:currentColor;flex-shrink:0;
+}
+.fb-block.tip{background:var(--surface2);border-left:3px solid var(--black);}
+.fb-block.tip .fb-block-title{color:var(--text-2);}
+.fb-block.warn{background:var(--bad-bg);border-left:3px solid var(--bad);}
+.fb-block.warn .fb-block-title{color:var(--bad);}
+.fb-block.great{background:#EAF4EE;border-left:3px solid #2A6644;}
+.fb-block.great .fb-block-title{color:#2A6644;}
+.fb-block p{font-size:12px;line-height:1.7;color:var(--text-2);}
 
 /* ── TYPING ── */
 .typing{display:flex;gap:5px;align-items:center;padding:4px 0;}
@@ -541,6 +613,10 @@ body{
 }
 
 /* ── ANIMATIONS ── */
+@keyframes slideUp{
+  from{transform:translateY(100%);}
+  to{transform:translateY(0);}
+}
 @keyframes fadeUp{
   from{opacity:0;transform:translateY(14px);}
   to{opacity:1;transform:translateY(0);}
@@ -561,6 +637,70 @@ body{
 ::-webkit-scrollbar{width:3px;}
 ::-webkit-scrollbar-track{background:transparent;}
 ::-webkit-scrollbar-thumb{background:var(--border);}
+
+/* ── MOBILE ADAPTIVE ── */
+@media(max-width:480px){
+  /* Intro */
+  .intro-h1{font-size:clamp(36px,12vw,52px);}
+  .intro-sub{font-size:12px;max-width:100%;}
+  .intro-cta{width:100%;justify-content:center;padding:18px 24px;}
+  .intro-logo img{height:18px;}
+
+  /* Selector */
+  .sel-header{padding:16px 16px 20px;}
+  .sel-title{font-size:26px;}
+  .sc-num{font-size:22px;min-width:28px;}
+  .sc-title{font-size:13px;}
+  .sc-desc{font-size:11px;}
+  .sc-diff{font-size:8px;padding:4px 8px;}
+
+  /* Game header */
+  .game-header{padding:10px 14px;gap:10px;}
+  .gh-logo img{height:12px;}
+  .gh-title{font-size:10px;}
+
+  /* Mood bar */
+  .mood-bar-section{padding:10px 14px 12px;}
+
+  /* Scene */
+  .scene{padding:12px 14px 80px;}
+  .step-dots{padding:12px 14px 0;}
+  .char-av{width:52px;height:66px;}
+  .bubble{padding:12px 14px;}
+  .bubble-txt{font-size:13px;}
+
+  /* Choices */
+  .choice-btn{font-size:12px;padding:13px 14px;min-height:52px;}
+  .choices-head{font-size:8px;}
+
+  /* Feedback & next */
+  .feedback{font-size:11px;padding:12px 14px;}
+  .btn-next{font-size:10px;padding:14px;}
+
+  /* Toast */
+  #sc-toast-inner{padding:22px 16px 28px;}
+
+  /* Final */
+  .result-top{padding:40px 16px 28px;}
+  .result-bottom{padding:22px 16px 32px;}
+  .result-h{font-size:28px;}
+  .score-grid{gap:8px;}
+  .sc-result-card{padding:12px 14px;}
+  .fb-block{padding:13px 14px;}
+}
+
+@media(max-width:360px){
+  .intro-h1{font-size:32px;}
+  .choice-btn{font-size:11px;}
+  .sc-diff{display:none;}
+}
+
+/* Safe area insets for modern iPhones */
+@supports(padding:env(safe-area-inset-bottom)){
+  .scene{padding-bottom:calc(80px + env(safe-area-inset-bottom));}
+  #sc-toast-inner{padding-bottom:calc(28px + env(safe-area-inset-bottom));}
+  .result-bottom{padding-bottom:calc(32px + env(safe-area-inset-bottom));}
+}
 </style>
 </head>
 <body>
@@ -576,6 +716,7 @@ body{
     <div class="intro-eyebrow">Диалоговый тренажёр</div>
     <h1 class="intro-h1">Сервис<br>на <em>отлично</em></h1>
     <p class="intro-sub">Отработай реальные ситуации в пункте выдачи заказов. Твои ответы напрямую влияют на настроение клиента.</p>
+    <p class="intro-meta-inline">3 сценария · ~10 минут · ПВЗ</p>
     <button class="intro-cta" onclick="showSelector()">
       Начать
       <span class="intro-cta-arrow">
@@ -593,13 +734,13 @@ body{
       <button class="back-btn" onclick="showIntro()">
         ← <span class="back-btn-logo"><img src="data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNTIzIiBoZWlnaHQ9Ijg2IiB2aWV3Qm94PSIwIDAgNTIzIDg2IiBmaWxsPSJub25lIiB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciPgo8cGF0aCBkPSJNOTEuODgzNSAyNi45MDQxSDkxLjUyOTVDODcuMzMyNSAyMC4wNjA3IDc4LjkyMTUgMTUuNjEwOCA2OC4xMDAyIDE1LjYxMDhDNDcuNjg4IDE1LjYxMDggMzQuODI3MSAzMC4xNDA0IDM0LjgyNzEgNTAuODA1NEMzNC44MjcxIDcxLjQ3MDQgNDcuNjg4IDg2IDY4LjEwMDIgODZDNzguOTA0NyA4NiA4Ny4zMTU2IDgxLjU1MDEgOTEuNTI5NSA3NC43MDY3SDkxLjg4MzVWODQuMDc4NUgxMDkuNDEzVjE3LjUzMjRIOTEuODgzNVYyNi45MDQxWk03Mi41MzMyIDcxLjU4ODRDNTguMTIxNiA3MS41ODg0IDUyLjk0NyA2NC45ODEgNTIuOTQ3IDUwLjgwNTRDNTIuOTQ3IDM2LjYyOTggNTguMTA0OCAzMC4wMjI0IDcyLjUzMzIgMzAuMDIyNEM4Ni45NjE3IDMwLjAyMjQgOTIuMTE5NSAzNi42Mjk4IDkyLjExOTUgNTAuODA1NEM5Mi4xMTk1IDY0Ljk4MSA4Ni45NjE3IDcxLjU4ODQgNzIuNTMzMiA3MS41ODg0WiIgZmlsbD0id2hpdGUiLz4KPHBhdGggZD0iTTE3Ljc4MjcgMEgwVjg0LjA3NkgxNy43ODI3VjBaIiBmaWxsPSJ3aGl0ZSIvPgo8cGF0aCBkPSJNMjIyLjk1OCAxNS42MTA4QzIwOS41MDggMTUuNjEwOCAyMDEuNzAzIDIwLjg4NjcgMTk2Ljg5OSAyOC4xMDA5SDE5Ni42NjRDMTkyLjQ1IDIwLjc2ODcgMTg0LjQwOSAxNS42MTA4IDE3Mi42NDQgMTUuNjEwOEMxNjEuODQgMTUuNjEwOCAxNTMuNDI5IDIwLjA2MDcgMTQ5LjIxNSAyNi45MDQxSDE0OC44NjFWMTcuNTMyNEgxMzEuMzMxVjg0LjA3ODVIMTQ4Ljg2MVY0Ni44NDQ0QzE0OC44NjEgMzUuMDc5MSAxNTMuNjY1IDMwLjAyMjQgMTY1LjU2NSAzMC4wMjI0QzE3Ny40NjUgMzAuMDIyNCAxODIuMjY5IDM1LjA2MjMgMTgyLjI2OSA0Ni44NDQ0Vjg0LjA3ODVIMTk5Ljc5OVY0Ni44NDQ0QzE5OS43OTkgMzUuMDc5MSAyMDQuNjAzIDMwLjAyMjQgMjE2LjQ4NiAzMC4wMjI0QzIyOC4zNjkgMzAuMDIyNCAyMzMuMTkgMzUuMDYyMyAyMzMuMTkgNDYuODQ0NFY4NC4wNzg1SDI1MC43MlY0MS43ODc3QzI1MC43MiAyNi4xNzkzIDI0MC4zODcgMTUuNjEwOCAyMjIuOTc1IDE1LjYxMDhIMjIyLjk1OFoiIGZpbGw9IndoaXRlIi8+CjxwYXRoIGQ9Ik0zMDQuMzY5IDE1LjYxMDhDMjgxLjY2NCAxNS42MTA4IDI2Ni4yOTIgMzAuMzc2NCAyNjYuMjkyIDUwLjgwNTRDMjY2LjI5MiA3MS4yMzQ1IDI4MS42NjQgODYgMzA0LjM2OSA4NkMzMjcuMDczIDg2IDM0Mi40NDYgNzEuMjE3NiAzNDIuNDQ2IDUwLjgwNTRDMzQyLjQ0NiAzMC4zOTMyIDMyNy4wNzMgMTUuNjEwOCAzMDQuMzY5IDE1LjYxMDhaTTMwNC4zNjkgNzEuNTg4NEMyODkuOTU3IDcxLjU4ODQgMjg0LjU0NyA2NC45ODEgMjg0LjU0NyA1MC44MDU0QzI4NC41NDcgMzYuNjI5OCAyODkuOTU3IDMwLjAyMjQgMzA0LjM2OSAzMC4wMjI0QzMxOC43OCAzMC4wMjI0IDMyNC4xOTEgMzYuNjI5OCAzMjQuMTkxIDUwLjgwNTRDMzI0LjE5MSA2NC45ODEgMzE4Ljc4IDcxLjU4ODQgMzA0LjM2OSA3MS41ODg0WiIgZmlsbD0id2hpdGUiLz4KPHBhdGggZD0iTTQxMy41NjIgMjYuOTAxNkg0MTMuMjA4QzQwOS4wMTEgMjAuMDU4MiA0MDAuNiAxNS42MDgzIDM4OS43NzkgMTUuNjA4M0MzNjkuMzUgMTUuNjA4MyAzNTYuNTA2IDMwLjEzNzkgMzU2LjUwNiA1MC44MDI5QzM1Ni41MDYgNzEuNDY3OSAzNjkuMzUgODUuOTk3NSAzODkuNzc5IDg1Ljk5NzVDNDAwLjU4MyA4NS45OTc1IDQwOC45OTQgODEuNTQ3NiA0MTMuMjA4IDc0LjcwNDJINDEzLjU2MlY4NC4wNzZINDMxLjA5MlYwSDQxMy41NjJWMjYuOTAxNlpNMzk0LjIyOSA3MS41ODU5QzM3OS44MTcgNzEuNTg1OSAzNzQuNjQzIDY0Ljk3ODUgMzc0LjY0MyA1MC44MDI5QzM3NC42NDMgMzYuNjI3MyAzNzkuOCAzMC4wMTk5IDM5NC4yMjkgMzAuMDE5OUM0MDguNjU3IDMwLjAxOTkgNDEzLjgxNSAzNi42MjczIDQxMy44MTUgNTAuODAyOUM0MTMuODE1IDY0Ljk3ODUgNDA4LjY0IDcxLjU4NTkgMzk0LjIyOSA3MS41ODU5WiIgZmlsbD0id2hpdGUiLz4KPHBhdGggZD0iTTUwNS4wMDMgMTcuNTMyNFYyNi45MDQxSDUwNC42NDlDNTAwLjQ1MiAyMC4wNjA3IDQ5Mi4wNDEgMTUuNjEwOCA0ODEuMjE5IDE1LjYxMDhDNDYwLjgwNyAxNS42MTA4IDQ0Ny45NDYgMzAuMTQwNCA0NDcuOTQ2IDUwLjgwNTRDNDQ3Ljk0NiA3MS40NzA0IDQ2MC43OSA4NiA0ODEuMjE5IDg2QzQ5Mi4wMjQgODYgNTAwLjQzNSA4MS41NTAxIDUwNC42NDkgNzQuNzA2N0g1MDUuMDAzVjg0LjA3ODVINTIyLjUzM1YxNy41MzI0SDUwNS4wMDNaTTQ4NS42NTIgNzEuNTg4NEM0NzEuMjQxIDcxLjU4ODQgNDY2LjA2NiA2NC45ODEgNDY2LjA2NiA1MC44MDU0QzQ2Ni4wNjYgMzYuNjI5OCA0NzEuMjI0IDMwLjAyMjQgNDg1LjY1MiAzMC4wMjI0QzUwMC4wODEgMzAuMDIyNCA1MDUuMjM5IDM2LjYyOTggNTA1LjIzOSA1MC44MDU0QzUwNS4yMzkgNjQuOTgxIDUwMC4wODEgNzEuNTg4NCA0ODUuNjUyIDcxLjU4ODRaIiBmaWxsPSJ3aGl0ZSIvPgo8L3N2Zz4K" alt="lamoda"></span>
       </button>
-      <h2 class="sel-title">Выбери сценарий</h2>
-      <p class="sel-sub">Реальные ситуации из практики ПВЗ</p>
+      <h2 class="sel-title" id="sel-title">Выбери сценарий</h2>
+      <p class="sel-sub" id="sel-sub">Пройди все три сценария по порядку</p>
     </div>
   </div>
   <div style="flex:1;display:flex;flex-direction:column;justify-content:center;width:100%;max-width:600px;padding:0 20px 40px;margin:0 auto;">
     <div class="scenario-list">
-      <div class="scenario-row" onclick="startScenario(0)">
+      <div class="scenario-row" id="sc-row-0" onclick="tryScenario(0)">
         <div class="sc-num">01</div>
         <div class="sc-icon2">📦</div>
         <div class="sc-info">
@@ -607,9 +748,9 @@ body{
           <div class="sc-desc">Клиент обнаружил дефект при получении заказа</div>
         </div>
         <span class="sc-diff diff-easy"><svg width="20" height="6" viewBox="0 0 20 6"><circle cx="3" cy="3" r="2.5" fill="currentColor"/><circle cx="10" cy="3" r="2.5" fill="currentColor" opacity=".25"/><circle cx="17" cy="3" r="2.5" fill="currentColor" opacity=".25"/></svg>Базовый</span>
-        <span class="sc-arrow">›</span>
+        <span class="sc-status active" id="sc-status-0">→</span>
       </div>
-      <div class="scenario-row" onclick="startScenario(1)">
+      <div class="scenario-row locked" id="sc-row-1" onclick="tryScenario(1)">
         <div class="sc-num">02</div>
         <div class="sc-icon2">💳</div>
         <div class="sc-info">
@@ -617,9 +758,9 @@ body{
           <div class="sc-desc">Клиент недоволен списанием за доставку</div>
         </div>
         <span class="sc-diff diff-med"><svg width="20" height="6" viewBox="0 0 20 6"><circle cx="3" cy="3" r="2.5" fill="currentColor"/><circle cx="10" cy="3" r="2.5" fill="currentColor"/><circle cx="17" cy="3" r="2.5" fill="currentColor" opacity=".25"/></svg>Средний</span>
-        <span class="sc-arrow">›</span>
+        <span class="sc-status locked" id="sc-status-1">—</span>
       </div>
-      <div class="scenario-row" onclick="startScenario(2)">
+      <div class="scenario-row locked" id="sc-row-2" onclick="tryScenario(2)">
         <div class="sc-num">03</div>
         <div class="sc-icon2">🔄</div>
         <div class="sc-info">
@@ -627,8 +768,12 @@ body{
           <div class="sc-desc">Большая очередь, клиент нервничает</div>
         </div>
         <span class="sc-diff diff-hard"><svg width="20" height="6" viewBox="0 0 20 6"><circle cx="3" cy="3" r="2.5" fill="currentColor"/><circle cx="10" cy="3" r="2.5" fill="currentColor"/><circle cx="17" cy="3" r="2.5" fill="currentColor"/></svg>Сложный</span>
-        <span class="sc-arrow">›</span>
+        <span class="sc-status locked" id="sc-status-2">—</span>
       </div>
+      <button class="btn-finish" id="btn-finish" onclick="showFinalResult()">
+        Завершить обучение
+        <svg width="14" height="14" viewBox="0 0 16 16" fill="none" style="display:inline;vertical-align:middle;margin-left:8px;"><path d="M3 8h10M9 4l4 4-4 4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      </button>
     </div>
   </div>
 </div>
@@ -686,32 +831,77 @@ body{
   </div>
 </div>
 
-<!-- ══════════ RESULT ══════════ -->
-<div id="result" class="screen">
-  <div class="result-top">
-    <div class="result-emoji" id="r-emoji"></div>
-    <h2 class="result-h" id="r-title">Отлично!</h2>
-    <p class="result-desc" id="r-desc">Клиент доволен обслуживанием.</p>
-  </div>
-  <div class="result-bottom">
-    <div class="accent-bar"></div>
-    <div class="score-grid">
-      <div class="score-cell">
-        <div class="score-lbl">Настроение</div>
-        <div class="score-val" id="r-mood">—</div>
-      </div>
-      <div class="score-cell">
-        <div class="score-lbl">Правильно</div>
-        <div class="score-val" id="r-correct">—</div>
-      </div>
-      <div class="score-cell-wide">
-        <div class="score-lbl">Итоговый балл</div>
-        <div class="final-track"><div class="final-fill" id="r-bar" style="width:0%"></div></div>
+<!-- ══════════ SCENARIO TOAST (overlay on selector) ══════════ -->
+<div id="sc-toast" style="display:none;position:fixed;inset:0;z-index:100;background:rgba(0,0,0,.7);backdrop-filter:blur(4px);align-items:flex-end;justify-content:center;">
+  <div id="sc-toast-inner" style="background:var(--surface);width:100%;max-width:560px;border-radius:var(--r) var(--r) 0 0;padding:28px 24px 36px;animation:slideUp .35s cubic-bezier(.4,0,.2,1) both;">
+    <div style="display:flex;align-items:center;gap:14px;margin-bottom:20px;">
+      <div id="toast-face" style="flex-shrink:0;"></div>
+      <div>
+        <div style="font-size:10px;letter-spacing:2px;text-transform:uppercase;color:var(--text-3);margin-bottom:4px;" id="toast-sc-name"></div>
+        <div style="font-size:20px;font-weight:500;font-family:'Cormorant Garamond',serif;" id="toast-title"></div>
       </div>
     </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-bottom:20px;">
+      <div style="background:var(--surface2);border-radius:var(--r-sm);padding:12px 14px;">
+        <div style="font-size:9px;letter-spacing:1.5px;text-transform:uppercase;color:var(--text-3);margin-bottom:5px;">Верно</div>
+        <div style="font-size:20px;font-weight:500;" id="toast-correct">—</div>
+      </div>
+      <div style="background:var(--surface2);border-radius:var(--r-sm);padding:12px 14px;">
+        <div style="font-size:9px;letter-spacing:1.5px;text-transform:uppercase;color:var(--text-3);margin-bottom:5px;">Ошибок</div>
+        <div style="font-size:20px;font-weight:500;" id="toast-wrong">—</div>
+      </div>
+      <div style="background:var(--surface2);border-radius:var(--r-sm);padding:12px 14px;">
+        <div style="font-size:9px;letter-spacing:1.5px;text-transform:uppercase;color:var(--text-3);margin-bottom:5px;">Настр.</div>
+        <div style="font-size:20px;font-weight:500;" id="toast-mood">—</div>
+      </div>
+    </div>
+    <div style="background:var(--surface2);border-radius:var(--r-sm);padding:14px 16px;margin-bottom:20px;display:none;" id="toast-mistakes">
+      <div style="font-size:9px;letter-spacing:1.5px;text-transform:uppercase;color:var(--text-3);margin-bottom:8px;">Обрати внимание</div>
+      <div style="font-size:12px;line-height:1.7;color:var(--text-2);" id="toast-mistakes-text"></div>
+    </div>
+    <div style="display:flex;flex-direction:column;gap:8px;">
+      <button onclick="toastContinue()" style="background:var(--black);color:var(--white);border:none;padding:15px;border-radius:var(--r-sm);font-family:'Inter',sans-serif;font-size:11px;font-weight:500;letter-spacing:2px;text-transform:uppercase;cursor:pointer;" id="toast-cta">Следующий сценарий</button>
+      <button onclick="toastRetry()" style="background:transparent;color:var(--text-2);border:1px solid var(--border);padding:13px;border-radius:var(--r-sm);font-family:'Inter',sans-serif;font-size:11px;letter-spacing:1.5px;text-transform:uppercase;cursor:pointer;">Попробовать снова</button>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════ FINAL ══════════ -->
+<div id="final" class="screen">
+  <div class="result-top" style="min-height:280px;">
+    <div class="result-emoji" id="f-emoji"></div>
+    <h2 class="result-h" id="f-title">Обучение завершено</h2>
+    <p class="result-desc" id="f-desc">Вы прошли все три сценария</p>
+  </div>
+  <div class="result-bottom" style="max-width:580px;">
+    <div class="accent-bar"></div>
+    <!-- Общий счёт -->
+    <div class="score-grid" style="margin-bottom:16px;">
+      <div class="score-cell">
+        <div class="score-lbl">Всего верно</div>
+        <div class="score-val" id="f-correct">—</div>
+      </div>
+      <div class="score-cell">
+        <div class="score-lbl">Ошибок</div>
+        <div class="score-val" id="f-wrong">—</div>
+      </div>
+      <div class="score-cell-wide">
+        <div class="score-lbl">Общий результат</div>
+        <div class="final-track" style="margin-top:10px;"><div class="final-fill" id="f-bar" style="width:0%"></div></div>
+        <div style="display:flex;justify-content:space-between;margin-top:6px;">
+          <span style="font-size:10px;color:var(--text-3);letter-spacing:.5px;">0</span>
+          <span style="font-size:12px;font-weight:500;" id="f-pct">—</span>
+          <span style="font-size:10px;color:var(--text-3);letter-spacing:.5px;">100</span>
+        </div>
+      </div>
+    </div>
+    <!-- Детализация по сценариям -->
+    <div id="f-scenarios" style="display:flex;flex-direction:column;gap:8px;margin-bottom:20px;"></div>
+    <!-- Персонализированная обратная связь -->
+    <div id="f-feedback-block" style="margin-bottom:20px;"></div>
+    <!-- Кнопки -->
     <div class="result-btns">
-      <button class="btn-retry" onclick="retryScenario()">Попробовать снова</button>
-      <button class="btn-menu" onclick="showSelector()">Другой сценарий</button>
+      <button class="btn-retry" onclick="restartAll()">Пройти заново</button>
     </div>
   </div>
 </div>
@@ -850,6 +1040,10 @@ const SCENARIOS = [
 
 /* ── STATE ── */
 let SC=null, step=0, mood=60, correct=0, wrong=0, answered=false;
+// Global progress tracking
+const TOTAL = 3;
+let completedScenarios = []; // array of {id, correct, wrong, mood, mistakes:[]}
+let allMistakes = []; // flat array of mistake feedback strings
 
 /* ── MOOD ── */
 function moodData(v){
@@ -876,7 +1070,42 @@ function show(id){
   window.scrollTo(0,0);
 }
 function showIntro(){show('intro');}
-function showSelector(){show('selector');}
+function showSelector(){
+  closeToast();
+  updateSelectorUI();
+  show('selector');
+}
+function updateSelectorUI(){
+  for(let i=0;i<TOTAL;i++){
+    const row=document.getElementById('sc-row-'+i);
+    const st=document.getElementById('sc-status-'+i);
+    const done=completedScenarios.find(s=>s.id===i);
+    const isNext=completedScenarios.length===i;
+    if(done){
+      row.classList.remove('locked');
+      st.className='sc-status done'; st.textContent='✓';
+    } else if(isNext){
+      row.classList.remove('locked');
+      st.className='sc-status active'; st.textContent='→';
+    } else {
+      row.classList.add('locked');
+      st.className='sc-status locked'; st.textContent='—';
+    }
+  }
+  const allDone=completedScenarios.length>=TOTAL;
+  const fb=document.getElementById('btn-finish');
+  if(fb) fb.className='btn-finish'+(allDone?' show':'');
+  if(allDone){
+    document.getElementById('sel-title').textContent='Все сценарии пройдены';
+    document.getElementById('sel-sub').textContent='Нажми «Завершить» для итогового результата';
+  }
+}
+function tryScenario(i){
+  const done=completedScenarios.find(s=>s.id===i);
+  const isNext=completedScenarios.length===i;
+  if(!done&&!isNext) return; // locked
+  startScenario(i);
+}
 function startScenario(i){
   SC=SCENARIOS[i]; step=0; mood=60; correct=0; wrong=0;
   document.getElementById('gh-title').textContent=SC.title;
@@ -928,40 +1157,56 @@ function renderStep(){
   },750);
 }
 
+function shuffle(arr){
+  // Fisher-Yates
+  const a=[...arr];
+  for(let i=a.length-1;i>0;i--){
+    const j=Math.floor(Math.random()*(i+1));
+    [a[i],a[j]]=[a[j],a[i]];
+  }
+  return a;
+}
+
+// Holds the shuffled order for the current step so pick() can look up by rendered index
+let currentShuffled=[];
+
 function renderChoices(s){
+  currentShuffled=shuffle(s.choices);
   const c=document.getElementById('choices'); c.innerHTML='';
-  s.choices.forEach((ch,i)=>{
+  currentShuffled.forEach((ch,i)=>{
     const b=document.createElement('button');
     b.className='choice-btn';
     b.textContent=ch.txt;
-    b.onclick=()=>pick(i,s);
+    b.onclick=()=>pick(ch); // pass the choice object directly — index-independent
     b.style.animationDelay=(i*.07)+'s';
     b.style.animation='fadeUp .4s ease both';
     c.appendChild(b);
   });
 }
 
-function pick(idx,s){
+function pick(ch){
   if(answered)return; answered=true;
-  const ch=s.choices[idx];
   mood=Math.max(0,Math.min(100,mood+ch.delta));
   if(ch.ok)correct++; else wrong++;
   updateMood();
+  // Style buttons using the shuffled array
   document.querySelectorAll('.choice-btn').forEach((b,i)=>{
     b.disabled=true;
-    const c=s.choices[i];
-    if(i===idx){
+    const c=currentShuffled[i];
+    const isSelected=(c===ch);
+    if(isSelected){
       b.className='choice-btn '+(ch.ok?'sel-good pulse-g':'sel-bad shake');
     } else if(c.ok&&!ch.ok){
       b.className='choice-btn rev-good';
     }
-    if(i===idx||(c.ok&&!ch.ok&&i!==idx)){
+    if(isSelected||(c.ok&&!ch.ok&&!isSelected)){
       const bg=document.createElement('div');
       bg.className='badge '+(c.ok?'badge-g':'badge-b');
       bg.textContent=(c.ok?'✓ ':'✗ ')+c.badge;
       b.appendChild(bg);
     }
   });
+  if(!ch.ok){ allMistakes.push({sc:SC.title, scId:SC.id, fb:ch.fb}); }
   const fb=document.getElementById('feedback');
   fb.className='feedback show '+(ch.ok?'good':'bad');
   document.getElementById('fb-title').textContent=ch.ok?'Верный ответ':'Ошибка';
@@ -977,35 +1222,226 @@ function nextStep(){
   setTimeout(renderStep,250);
 }
 
-/* ── RESULT ── */
+/* ── SCENARIO RESULT TOAST ── */
 function showResult(){
   const total=correct+wrong;
   const pct=Math.round((correct/total)*100);
   const fm=Math.max(0,Math.min(100,mood));
-  let svgIcon,title,desc;
-  const mkFace=(mouth,col)=>`<svg width="52" height="52" viewBox="0 0 52 52" fill="none" xmlns="http://www.w3.org/2000/svg"><circle cx="26" cy="26" r="24" stroke="${col}" stroke-width="1.5"/><circle cx="19.5" cy="22" r="2.5" fill="${col}"/><circle cx="32.5" cy="22" r="2.5" fill="${col}"/><path d="${mouth}" stroke="${col}" stroke-width="1.8" fill="none" stroke-linecap="round"/></svg>`;
-  if(fm>=80&&pct>=75){svgIcon=mkFace('M18 31 Q26 38 34 31','#2A6644');title='Икона сервиса';desc='Клиент в восторге от обслуживания. Ты показываешь отличный сервис и мастерски управляешь эмоциями клиента.';}
-  else if(fm>=60&&pct>=50){svgIcon=mkFace('M18 32 Q26 36 34 32','#888680');title='Мастер сервиса';desc='Клиент остался доволен, но у тебя есть точки роста. Обрати внимание на шаги, где допущены ошибки.';}
-  else if(fm>=40){svgIcon=mkFace('M18 34 Q26 30 34 34','#9B6B20');title='Адепт сервиса';desc='Несколько ответов негативно повлияли на клиента. Учти ошибки и попробуй снова.';}
-  else{svgIcon=mkFace('M18 35 Q26 30 34 35','#B83214');title='Нужна практика';desc='Клиент остался недоволен. Попробуй снова, чтобы исправить ошибки.';}
-  document.getElementById('r-emoji').innerHTML=svgIcon;
-  document.getElementById('r-title').textContent=title;
-  document.getElementById('r-desc').textContent=desc;
-  const md=moodData(fm);
-  const mv=document.getElementById('r-mood');
-  mv.textContent=fm+' / 100';
-  mv.className='score-val '+(fm>=60?'g':'b');
-  const cv=document.getElementById('r-correct');
-  cv.textContent=correct+' / '+total;
-  cv.className='score-val '+(pct>=60?'g':'b');
-  show('result');
-  setTimeout(()=>{
-    const bar=document.getElementById('r-bar');
-    bar.style.width=fm+'%';
-    bar.style.backgroundColor=md.color;
-  },400);
+  // Save result
+  const existing=completedScenarios.findIndex(s=>s.id===SC.id);
+  const record={id:SC.id,title:SC.title,correct,wrong,mood:fm,pct};
+  if(existing>=0) completedScenarios[existing]=record;
+  else completedScenarios.push(record);
+
+  // Build face SVG (dark for light background)
+  const mkFaceDark=(mouth)=>`<svg width="44" height="44" viewBox="0 0 44 44" fill="none"><circle cx="22" cy="22" r="20" stroke="#1A1A1A" stroke-width="1.3"/><circle cx="16.5" cy="18.5" r="2" fill="#1A1A1A"/><circle cx="27.5" cy="18.5" r="2" fill="#1A1A1A"/><path d="${mouth}" stroke="#1A1A1A" stroke-width="1.5" fill="none" stroke-linecap="round"/></svg>`;
+  let face,toastTitle;
+  if(fm>=80&&pct>=75){face=mkFaceDark('M15 27 Q22 33 29 27');toastTitle='Отличный результат';}
+  else if(fm>=60&&pct>=50){face=mkFaceDark('M15 27.5 Q22 31 29 27.5');toastTitle='Хорошая работа';}
+  else if(fm>=40){face=mkFaceDark('M15 29 Q22 25.5 29 29');toastTitle='Есть над чем работать';}
+  else{face=mkFaceDark('M15 30 Q22 26 29 30');toastTitle='Нужна практика';}
+
+  document.getElementById('toast-face').innerHTML=face;
+  document.getElementById('toast-sc-name').textContent=SC.title;
+  document.getElementById('toast-title').textContent=toastTitle;
+  document.getElementById('toast-correct').textContent=correct+' / '+total;
+  document.getElementById('toast-wrong').textContent=wrong;
+  document.getElementById('toast-mood').textContent=fm;
+
+  // Show mistake hints (max 2)
+  const scMistakes=allMistakes.filter(m=>m.scId===SC.id);
+  const mistakeBox=document.getElementById('toast-mistakes');
+  if(scMistakes.length>0){
+    mistakeBox.style.display='block';
+    document.getElementById('toast-mistakes-text').innerHTML=
+      scMistakes.slice(0,2).map(m=>m.fb.replace(/^Ошибка\.\s*/,'')).join('<br><br>');
+  } else {
+    mistakeBox.style.display='none';
+  }
+
+  // CTA label
+  const allDone=completedScenarios.length>=TOTAL;
+  document.getElementById('toast-cta').textContent=allDone?'Завершить обучение':'Следующий сценарий';
+
+  // Show toast over selector
+  updateSelectorUI();
+  show('selector');
+  const toast=document.getElementById('sc-toast');
+  toast.style.display='flex';
+  // re-trigger animation
+  const inner=document.getElementById('sc-toast-inner');
+  inner.style.animation='none';
+  inner.offsetHeight;
+  inner.style.animation='slideUp .35s cubic-bezier(.4,0,.2,1) both';
 }
-function retryScenario(){startScenario(SC.id);}
+
+function closeToast(){
+  document.getElementById('sc-toast').style.display='none';
+}
+function toastContinue(){
+  closeToast();
+  const allDone=completedScenarios.length>=TOTAL;
+  if(allDone){ showFinalResult(); }
+  // else selector already shown with next unlocked
+}
+function toastRetry(){
+  closeToast();
+  completedScenarios=completedScenarios.filter(s=>s.id!==SC.id);
+  allMistakes=allMistakes.filter(m=>m.scId!==SC.id);
+  startScenario(SC.id);
+}
+function retryScenario(){
+  completedScenarios=completedScenarios.filter(s=>s.id!==SC.id);
+  allMistakes=allMistakes.filter(m=>m.scId!==SC.id);
+  startScenario(SC.id);
+}
+function restartAll(){
+  completedScenarios=[]; allMistakes=[];
+  updateSelectorUI();
+  show('selector');
+}
+function showFinalResult(){
+  const totalC=completedScenarios.reduce((a,s)=>a+s.correct,0);
+  const totalW=completedScenarios.reduce((a,s)=>a+s.wrong,0);
+  const totalQ=totalC+totalW;
+  const overallPct=totalQ>0?Math.round((totalC/totalQ)*100):0;
+  const avgMood=Math.round(completedScenarios.reduce((a,s)=>a+s.mood,0)/Math.max(1,completedScenarios.length));
+
+  /* ── Face SVG (white, for dark header) ── */
+  const mkFace=(mouth)=>`<svg width="52" height="52" viewBox="0 0 52 52" fill="none"><circle cx="26" cy="26" r="24" stroke="rgba(255,255,255,.8)" stroke-width="1.4"/><circle cx="19.5" cy="22" r="2.2" fill="rgba(255,255,255,.9)"/><circle cx="32.5" cy="22" r="2.2" fill="rgba(255,255,255,.9)"/><path d="${mouth}" stroke="rgba(255,255,255,.9)" stroke-width="1.6" fill="none" stroke-linecap="round"/></svg>`;
+  let face,ftitle,fdesc;
+  if(overallPct>=80&&totalW===0){
+    face=mkFace('M16 30 Q26 39 36 30');
+    ftitle='Безупречный результат';
+    fdesc='Ни одной ошибки во всех трёх ситуациях. Вы отлично знаете стандарты обслуживания ПВЗ.';
+  } else if(overallPct>=75){
+    face=mkFace('M16 30 Q26 38 36 30');
+    ftitle='Отличный уровень сервиса';
+    fdesc='Вы уверенно справляетесь с большинством ситуаций. Клиенты в надёжных руках.';
+  } else if(overallPct>=55){
+    face=mkFace('M16 31 Q26 36 36 31');
+    ftitle='Хороший результат';
+    fdesc='Основные стандарты усвоены. Изучи отмеченные зоны роста — и уровень сервиса вырастет.';
+  } else {
+    face=mkFace('M16 33 Q26 28 36 33');
+    ftitle='Нужно больше практики';
+    fdesc='Рекомендуем повторить стандарты сервиса и пройти тренажёр снова.';
+  }
+  document.getElementById('f-emoji').innerHTML=face;
+  document.getElementById('f-title').textContent=ftitle;
+  document.getElementById('f-desc').textContent=fdesc;
+
+  /* ── Числа ── */
+  document.getElementById('f-correct').textContent=totalC+' / '+totalQ;
+  document.getElementById('f-wrong').textContent=totalW;
+  document.getElementById('f-pct').textContent=overallPct+'%';
+
+  /* ── По сценариям ── */
+  const scDiv=document.getElementById('f-scenarios');
+  scDiv.innerHTML='<div style="font-size:9px;letter-spacing:2px;text-transform:uppercase;color:var(--text-3);margin-bottom:10px;">Результат по сценариям</div>';
+  completedScenarios.forEach(s=>{
+    const bar=s.pct>=75?'#2A6644':s.pct>=50?'#555250':'#B83214';
+    const div=document.createElement('div');
+    div.className='sc-result-card';
+    div.innerHTML=`
+      <div class="sc-result-num">0${s.id+1}</div>
+      <div class="sc-result-info">
+        <div class="sc-result-title">${s.title}</div>
+        <div style="display:flex;align-items:center;gap:8px;margin-top:5px;">
+          <div class="sc-result-bar-wrap" style="flex:1;"><div class="sc-result-bar" style="width:0%;background:${bar}" data-w="${s.pct}"></div></div>
+          <span style="font-size:10px;color:var(--text-3);">Настр. ${s.mood}</span>
+        </div>
+      </div>
+      <div class="sc-result-score">${s.pct}%</div>`;
+    scDiv.appendChild(div);
+  });
+  setTimeout(()=>{
+    document.querySelectorAll('.sc-result-bar').forEach(b=>{b.style.width=b.dataset.w+'%';});
+    document.getElementById('f-bar').style.width=overallPct+'%';
+  },400);
+
+  /* ── Персонализированная обратная связь ── */
+  const fbDiv=document.getElementById('f-feedback-block');
+  fbDiv.innerHTML='<div style="font-size:9px;letter-spacing:2px;text-transform:uppercase;color:var(--text-3);margin-bottom:10px;">Обратная связь</div>';
+
+  if(totalW===0){
+    /* Идеальный результат */
+    const d=document.createElement('div');
+    d.className='fb-block great';
+    d.innerHTML=`<div class="fb-block-title">Всё верно</div>
+    <p>Ни одной ошибки во всех трёх сценариях. Вы точно следуете стандартам обслуживания ПВЗ:
+    умеете работать с дефектным товаром, объясняете условия доставки без конфликта и грамотно
+    управляете очередью в час-пик. Продолжайте применять эти навыки каждый день.</p>`;
+    fbDiv.appendChild(d);
+  } else {
+    /* Определяем темы ошибок */
+    const themes=new Set();
+    allMistakes.forEach(m=>{
+      const t=m.fb;
+      if(t.includes('перекладыва')||t.includes('поддержку')||t.includes('колл-центр')) themes.add('delegation');
+      if(t.includes('обвин')||t.includes('невниматель')) themes.add('blame');
+      if(t.includes('лояльност')||t.includes('выкуп')||t.includes('скидк')||t.includes('доставк')) themes.add('loyalty');
+      if(t.includes('штрихкод')||t.includes('чередова')||t.includes('очередь')||t.includes('час-пик')) themes.add('queue');
+      if(t.includes('эмпати')||t.includes('понима')||t.includes('тон')||t.includes('расплывча')) themes.add('empathy');
+      if(t.includes('репутац')||t.includes('бренд')||t.includes('поставщик')||t.includes('подделк')) themes.add('brand');
+    });
+
+    /* Слабые сценарии */
+    const weakSc=completedScenarios.filter(s=>s.pct<75).sort((a,b)=>a.pct-b.pct);
+    if(weakSc.length>0){
+      const d=document.createElement('div');
+      d.className='fb-block warn';
+      const scLines=weakSc.map(s=>{
+        const scMist=allMistakes.filter(m=>m.scId===s.id);
+        const summary=scMist.length>0?scMist[0].fb.replace(/^Ошибка\.\s*/,''):'Есть пространство для улучшения.';
+        return `<b>${s.title}</b> (${s.pct}% верно, настроение ${s.mood})<br>${summary}`;
+      }).join('<br><br>');
+      d.innerHTML=`<div class="fb-block-title">Зоны роста</div><p>${scLines}</p>`;
+      fbDiv.appendChild(d);
+    }
+
+    /* Практические советы по темам */
+    const tips=[];
+    if(themes.has('delegation')){
+      tips.push(`<b>Бери ответственность на себя.</b> Когда клиент приходит с проблемой, именно сотрудник ПВЗ — первая и главная точка решения. Фразы «напишите в поддержку» или «позвоните в колл-центр» без объяснения и конкретного следующего шага воспринимаются как отказ от помощи.`);
+    }
+    if(themes.has('blame')){
+      tips.push(`<b>Никогда не обвиняй клиента.</b> Даже если ошибка на его стороне — это недопустимо. Стандарт требует нейтрального тона: «при оформлении стоимость доставки отображалась в корзине» вместо «вы плохо читали».`);
+    }
+    if(themes.has('loyalty')){
+      tips.push(`<b>Знай условия программы лояльности.</b> Вопросы про процент выкупа, скидки и бесплатную доставку — одни из самых частых у клиентов ПВЗ. Уверенный ответ формирует доверие к бренду. Изучи актуальные пороги в приложении и держи их в голове.`);
+    }
+    if(themes.has('queue')){
+      tips.push(`<b>В час-пик работай по алгоритму:</b> поздоровайся → назови примерное время ожидания → попроси подготовить штрихкод → при вопросах об очерёдности объясни систему чередования выдачи и возвратов. Чёткая структура снижает напряжение у всей очереди.`);
+    }
+    if(themes.has('empathy')){
+      tips.push(`<b>Добавляй эмпатию в начало ответа.</b> «Понимаю ваше расстройство» или «сожалею, что так вышло» — короткие фразы, которые меняют тон всего диалога. Клиент сначала хочет быть услышанным, и только потом — получить решение.`);
+    }
+    if(themes.has('brand')){
+      tips.push(`<b>Уверенно защищай репутацию Lamoda.</b> При сомнениях клиента в качестве товара используй стандартную формулировку: Lamoda сотрудничает только с проверенными поставщиками или напрямую с производителями. При необходимости предлагай сфотографировать товар и обратиться в поддержку для проверки.`);
+    }
+
+    if(tips.length>0){
+      const d=document.createElement('div');
+      d.className='fb-block tip';
+      d.innerHTML=`<div class="fb-block-title">Практические советы</div><p>${tips.join('<br><br>')}</p>`;
+      fbDiv.appendChild(d);
+    }
+
+    /* Лучший сценарий — похвала */
+    const bestSc=completedScenarios.filter(s=>s.pct>=75);
+    if(bestSc.length>0&&weakSc.length>0){
+      const d=document.createElement('div');
+      d.className='fb-block great';
+      d.innerHTML=`<div class="fb-block-title">Сильные стороны</div><p>${bestSc.map(s=>`<b>${s.title}</b> — ${s.pct}% верных ответов`).join(', ')}. Эти навыки уже на хорошем уровне — перенеси тот же подход в более сложные ситуации.</p>`;
+      fbDiv.appendChild(d);
+    }
+  }
+
+  /* ── SCORM ── */
+  scormComplete(overallPct);
+  show('final');
+}
 
 updateMood();
 </script>
